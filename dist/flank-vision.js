@@ -23,10 +23,10 @@ function overlay() {
   return layer;
 }
 function clearOverlay() {
-  layer?.clear();
+  if (layer && !layer.destroyed) layer.clear();
 }
 function destroyOverlay() {
-  layer?.destroy();
+  if (layer && !layer.destroyed) layer.destroy();
   layer = null;
 }
 function thickness() {

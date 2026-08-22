@@ -13,11 +13,13 @@ export function overlay(): PIXI.Graphics {
 }
 
 export function clearOverlay(): void {
-  layer?.clear();
+  // clear() and destroy() both throw on an already-destroyed Graphics, and this runs first
+  // in every render - an unguarded throw here would stop the module drawing for good
+  if (layer && !layer.destroyed) layer.clear();
 }
 
 export function destroyOverlay(): void {
-  layer?.destroy();
+  if (layer && !layer.destroyed) layer.destroy();
   layer = null;
 }
 
