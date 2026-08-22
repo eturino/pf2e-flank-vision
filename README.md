@@ -20,9 +20,12 @@ Rules come from the system's own actor data (`attributes.flanking`, `getReach`,
 `isAllyOf`), so reach weapons, Lunge, size, unflankable creatures and Gang Up are all
 respected. It does not depend on the system's flanking automation setting.
 
+https://github.com/user-attachments/assets/8a92214d-ca6c-420f-8c3d-f3a1cb53e27b
+
 ## Requirements
 
 Foundry VTT v14, PF2e system v8.
+
 
 ## Install
 
@@ -94,3 +97,6 @@ Nothing below is covered by the unit tests, so check once after installing:
 ## License
 
 MIT.
+
+
+
