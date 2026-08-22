@@ -1,0 +1,18 @@
+{
+  "id": "pf2e-flank-vision",
+  "title": "PF2e Flank Vision",
+  "description": "Live flanking feedback for Pathfinder 2e: see who is flanked, who you flank, whether you are flanked, and where you could stand - including a preview while you drag.",
+  "version": "0.1.0",
+  "authors": [{ "name": "eturino" }],
+  "url": "https://github.com/eturino/pf2e-flank-vision",
+  "manifest": "https://raw.githubusercontent.com/eturino/pf2e-flank-vision/main/module.json",
+  "download": "https://github.com/eturino/pf2e-flank-vision/archive/refs/heads/main.zip",
+  "compatibility": { "minimum": "14", "verified": "14.367" },
+  "relationships": {
+    "systems": [
+      { "id": "pf2e", "type": "system", "compatibility": { "minimum": "8.0.0", "verified": "8.4.1" } }
+    ]
+  },
+  "esmodules": ["dist/flank-vision.js"],
+  "languages": [{ "lang": "en", "name": "English", "path": "lang/en.json" }]
+}

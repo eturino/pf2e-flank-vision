@@ -1,0 +1,41 @@
+{
+  "pf2e-flank-vision": {
+    "settings": {
+      "enabled": {
+        "name": "Enable flank vision",
+        "hint": "Master switch for every overlay this module draws. Toggle with Alt+F."
+      },
+      "flankedMarkers": {
+        "name": "Mark flanked tokens",
+        "hint": "Outline every token on the scene that is currently flanked."
+      },
+      "selectedStatus": {
+        "name": "Selected token status",
+        "hint": "For your selected token: outline the enemies it flanks (with a line to the ally making it work) and outline the token itself when it is being flanked."
+      },
+      "dragPreview": {
+        "name": "Preview while dragging",
+        "hint": "While dragging a token, show the flanking situation it would land in rather than the one it left."
+      },
+      "placementDots": {
+        "name": "Show flanking positions",
+        "hint": "Dot every square your selected token could move to in order to flank an enemy with an ally already in place. The expensive one."
+      },
+      "wallsBlock": {
+        "name": "Walls break flanking",
+        "hint": "House rule: require a clear line between the two flankers. Off by default, since the rules do not ask for one."
+      },
+      "searchRadius": {
+        "name": "Position search radius",
+        "hint": "Squares. Enemies further away than this are ignored when looking for flanking positions."
+      },
+      "maxSquares": {
+        "name": "Position limit",
+        "hint": "Stop after this many flanking positions, so a crowded scene cannot stall the canvas."
+      }
+    },
+    "keybindings": {
+      "toggle": { "name": "Toggle flank vision" }
+    }
+  }
+}

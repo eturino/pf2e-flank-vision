@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true # bundler needs its platform binary
+
+# Supply-chain guard: only install package versions published more than 5 days ago.
+# Unit is MINUTES (7200 = 5 days). pnpm 11 defaults this ON at 1440 (1 day).
+minimumReleaseAge: 7200
