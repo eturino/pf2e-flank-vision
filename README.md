@@ -29,7 +29,7 @@ Foundry VTT v14, PF2e system v8.
 
 ## Install
 
-Add-on module manifest URL:
+Add-on module manifest URL (works once the repository is public):
 
 ```
 https://raw.githubusercontent.com/eturino/pf2e-flank-vision/main/module.json
@@ -93,6 +93,17 @@ Nothing below is covered by the unit tests, so check once after installing:
 3. Stand between two enemies - your token outlined red.
 4. Turn on flanking positions with an ally next to an enemy - dots opposite the ally.
 5. Give someone a reach weapon or Lunge - the reachable ring grows.
+
+## Credits
+
+Inspired by [avenzi/foundry_pf2e_flank_helper](https://github.com/avenzi/foundry_pf2e_flank_helper),
+which showed that flanking positions are worth drawing on the canvas at all, and settled a
+few questions along the way: measure from occupied grid squares rather than token centres,
+walk the squares around the enemy rather than the whole scene, and keep the whole thing a
+client-side overlay. This module is a fresh implementation for Foundry v14 - no code taken.
+
+Flanking rules and the actor data behind them come from the
+[PF2e system](https://github.com/foundryvtt/pf2e).
 
 ## License
 
