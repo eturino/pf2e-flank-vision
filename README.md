@@ -52,7 +52,9 @@ git clone git@github.com:eturino/pf2e-flank-vision.git   # first time
 cd pf2e-flank-vision && git pull                         # updates
 ```
 
-`dist/` is committed on purpose - the server has no node toolchain, so a pull is enough.
+`dist/` is committed on purpose - the server has no node toolchain, so a pull is enough. CI
+rebuilds and fails if the committed bundle does not match `src/`, so a source fix can never ship
+without its build.
 
 ## Settings
 
