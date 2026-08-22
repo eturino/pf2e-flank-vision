@@ -1,3 +1,4 @@
+
 # PF2e Flank Vision
 
 Live flanking feedback for Pathfinder 2e on Foundry VTT v14.
@@ -20,7 +21,7 @@ Rules come from the system's own actor data (`attributes.flanking`, `getReach`,
 `isAllyOf`), so reach weapons, Lunge, size, unflankable creatures and Gang Up are all
 respected. It does not depend on the system's flanking automation setting.
 
-https://github.com/user-attachments/assets/8a92214d-ca6c-420f-8c3d-f3a1cb53e27b
+https://github.com/user-attachments/assets/a4d69b7e-9e60-445a-8ec2-16e1eb9c6bc7
 
 ## Requirements
 
