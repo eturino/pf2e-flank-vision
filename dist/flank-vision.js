@@ -1,14 +1,18 @@
-// src/draw.ts
-var COLORS = {
-  /** You flank this enemy (or would, from here). */
+// src/colors.ts
+var DEFAULT_COLORS = {
   flanking: 3390542,
-  /** Something is flanked, but not thanks to you. */
   otherFlanked: 15849526,
-  /** You are the one being flanked. */
   flanked: 15147300,
-  /** Squares you could move to. */
   placement: 4448223
 };
+function registerColors() {
+  CONFIG.pf2eFlankVision = { colors: { ...DEFAULT_COLORS } };
+}
+function colors() {
+  return CONFIG.pf2eFlankVision?.colors ?? DEFAULT_COLORS;
+}
+
+// src/draw.ts
 var layer = null;
 function overlay() {
   if (!layer || layer.destroyed) {
@@ -29,7 +33,8 @@ function thickness() {
   return CONFIG.Canvas.objectBorderThickness;
 }
 function outline(bounds, color, alpha = 0.8) {
-  overlay().lineStyle(thickness() * 1.5, 0, alpha * 0.5).drawRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top).lineStyle(thickness(), color, alpha).drawRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
+  const { left, top, right, bottom } = bounds;
+  overlay().lineStyle(thickness() * 1.5, 0, alpha * 0.5).drawRect(left, top, right - left, bottom - top).lineStyle(thickness(), color, alpha).drawRect(left, top, right - left, bottom - top);
 }
 function line(a, b, color, alpha = 0.6) {
   overlay().lineStyle(thickness() * 1.5, 0, alpha * 0.5).moveTo(a.x, a.y).lineTo(b.x, b.y).lineStyle(thickness(), color, alpha).moveTo(a.x, a.y).lineTo(b.x, b.y);
@@ -118,6 +123,18 @@ function surroundingSquares(squares, radius) {
   return out;
 }
 
+// src/pf2e.ts
+function isFlankToken(token) {
+  if (typeof token !== "object" || token === null) return false;
+  if (!("actor" in token) || !("document" in token)) return false;
+  const actor = token.actor;
+  if (typeof actor !== "object" || actor === null) return false;
+  if (!("attributes" in actor) || !("getReach" in actor) || !("isAllyOf" in actor)) return false;
+  if (typeof actor.getReach !== "function" || typeof actor.isAllyOf !== "function") return false;
+  const attributes = actor.attributes;
+  return typeof attributes === "object" && attributes !== null && "flanking" in attributes;
+}
+
 // src/scene.ts
 function gridSize() {
   return canvas.grid.size;
@@ -126,8 +143,8 @@ function gridDistance() {
   return canvas.dimensions?.distance || 5;
 }
 function occupiedSquares(token) {
-  const offsets = token.document?.getOccupiedGridSpaceOffsets?.() ?? [];
-  if (offsets.length > 0) return offsets.map((o) => ({ x: o.j, y: o.i }));
+  const offsets = token.document.getOccupiedGridSpaceOffsets();
+  if (offsets.length > 0) return offsets.map((offset) => ({ x: offset.j, y: offset.i }));
   const size = gridSize();
   const originX = Math.floor(token.document.x / size);
   const originY = Math.floor(token.document.y / size);
@@ -150,14 +167,12 @@ function boundsAt(token, at) {
   return boundsOf(squaresAt(token, at), gridSize());
 }
 function reachInSquares(token) {
-  const feet = token.actor?.getReach?.({ action: "attack" }) ?? gridDistance();
+  const feet = token.actor?.getReach({ action: "attack" }) ?? gridDistance();
   return Math.max(1, Math.round(feet / gridDistance()));
 }
 function visibleTokens() {
   const isGM = game.user.isGM;
-  return canvas.tokens.placeables.filter(
-    (t) => t.actor && !t.isPreview && (isGM || !t.document.hidden)
-  );
+  return canvas.tokens.placeables.filter(isFlankToken).filter((token) => !token.isPreview && (isGM || !token.document.hidden));
 }
 function canOccupy(token, at, others) {
   const squares = shiftSquares(occupiedSquares(token), at);
@@ -178,14 +193,15 @@ function wallBetween(a, b) {
   return backend.testCollision(a, b, { type: "move", mode: "any" });
 }
 function focusToken() {
-  const controlled = canvas.tokens.controlled.filter((t) => t.actor);
-  if (controlled.length > 0) return controlled[0];
+  const controlled = canvas.tokens.controlled.filter(isFlankToken);
+  const first = controlled.at(0);
+  if (first) return first;
   const character = game.user.character;
   if (!character) return null;
-  return canvas.tokens.placeables.find((t) => t.actor?.id === character.id) ?? null;
+  return visibleTokens().find((token) => token.actor?.id === character.id) ?? null;
 }
 function previewTokens() {
-  return (canvas.tokens.preview?.children ?? []).filter((t) => t?.actor);
+  return (canvas.tokens.preview?.children ?? []).filter(isFlankToken);
 }
 
 // src/flanking.ts
@@ -235,24 +251,14 @@ function flankedEnemies(attacker, tokens, opts, at) {
   return result;
 }
 function flankedBy(flankee, tokens, opts) {
-  const threats = tokens.filter((t) => canFlank(t, flankee));
+  const seen = /* @__PURE__ */ new Set();
   const pairs = [];
-  for (let i = 0; i < threats.length; i++) {
-    for (let j = i + 1; j < threats.length; j++) {
-      const [a, b] = [threats[i], threats[j]];
-      if (!isAlly(a, b)) continue;
-      const centerA = centerAt(a);
-      const centerB = centerAt(b);
-      if (!onOppositeSides(centerA, centerB, boundsAt(flankee))) continue;
-      if (opts.wallsBlock && wallBetween(centerA, centerB)) continue;
-      pairs.push({ a, b });
-    }
-  }
-  if (pairs.length === 0) {
-    const ganging = threats.find((t) => gangsUp(t, threats.filter((o) => o !== t && isAlly(t, o))));
-    if (ganging) {
-      const buddy = threats.find((t) => t !== ganging && isAlly(ganging, t));
-      if (buddy) pairs.push({ a: ganging, b: buddy });
+  for (const attacker of tokens) {
+    for (const buddy of buddiesFlanking(attacker, flankee, tokens, opts)) {
+      const key = [attacker.id, buddy.id].sort().join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pairs.push({ a: attacker, b: buddy });
     }
   }
   return pairs;
@@ -292,19 +298,28 @@ function flankingPlacements(token, tokens, opts, limits) {
 
 // src/main.ts
 var ID = "pf2e-flank-vision";
-function setting(key) {
-  return game.settings.get(ID, key);
+var TOGGLES = {
+  enabled: true,
+  flankedMarkers: true,
+  selectedStatus: true,
+  dragPreview: true,
+  placementDots: false,
+  wallsBlock: false
+};
+var AMOUNTS = {
+  searchRadius: 12,
+  maxSquares: 400
+};
+function toggled(key) {
+  const value = game.settings.get(ID, key);
+  return typeof value === "boolean" ? value : TOGGLES[key];
+}
+function amount(key) {
+  const value = game.settings.get(ID, key);
+  return typeof value === "number" ? value : AMOUNTS[key];
 }
 function registerSettings() {
-  const toggles = [
-    ["enabled", true],
-    ["flankedMarkers", true],
-    ["selectedStatus", true],
-    ["dragPreview", true],
-    ["placementDots", false],
-    ["wallsBlock", false]
-  ];
-  for (const [key, initial] of toggles) {
+  for (const [key, initial] of Object.entries(TOGGLES)) {
     game.settings.register(ID, key, {
       name: `${ID}.settings.${key}.name`,
       hint: `${ID}.settings.${key}.hint`,
@@ -315,11 +330,7 @@ function registerSettings() {
       onChange: () => requestRender()
     });
   }
-  const numbers = [
-    ["searchRadius", 12],
-    ["maxSquares", 400]
-  ];
-  for (const [key, initial] of numbers) {
+  for (const [key, initial] of Object.entries(AMOUNTS)) {
     game.settings.register(ID, key, {
       name: `${ID}.settings.${key}.name`,
       hint: `${ID}.settings.${key}.hint`,
@@ -334,7 +345,7 @@ function registerSettings() {
     name: `${ID}.keybindings.toggle.name`,
     editable: [{ key: "KeyF", modifiers: ["Alt"] }],
     onDown: () => {
-      game.settings.set(ID, "enabled", !setting("enabled"));
+      game.settings.set(ID, "enabled", !toggled("enabled"));
       return true;
     }
   });
@@ -354,56 +365,58 @@ function requestRender() {
 }
 function render() {
   clearOverlay();
-  if (!setting("enabled") || !canvas?.ready || !canvas.scene) return;
-  const opts = { wallsBlock: setting("wallsBlock") };
-  const preview = setting("dragPreview") ? previewTokens()[0] ?? null : null;
+  if (!toggled("enabled") || !canvas.ready || !canvas.scene) return;
+  const opts = { wallsBlock: toggled("wallsBlock") };
+  const preview = toggled("dragPreview") ? previewTokens()[0] ?? null : null;
   const all = visibleTokens();
   const source = preview ? preview._original ?? all.find((t) => t.id === preview.id) ?? null : null;
-  const tokens = all.filter((t) => t !== source);
+  const tokens = all.filter((token) => token !== source);
   if (preview) tokens.push(preview);
   const focus = preview ?? focusToken();
-  if (setting("flankedMarkers")) {
+  if (toggled("flankedMarkers")) {
     for (const [token] of flankedTokens(tokens, opts)) {
-      outline(boundsAt(token), COLORS.otherFlanked, 0.45);
+      outline(boundsAt(token), colors().otherFlanked, 0.45);
     }
   }
   if (!focus) return;
-  if (setting("placementDots") && !preview) {
+  if (toggled("placementDots") && !preview) {
     drawPlacements(focus, tokens, opts);
   }
-  if (setting("selectedStatus") || preview) {
+  if (toggled("selectedStatus") || preview) {
     drawFocusStatus(focus, tokens, opts);
   }
 }
 function drawFocusStatus(focus, tokens, opts) {
   for (const [enemy, buddies] of flankedEnemies(focus, tokens, opts)) {
-    outline(boundsAt(enemy), COLORS.flanking);
+    outline(boundsAt(enemy), colors().flanking);
     for (const buddy of buddies) {
-      line(centerAt(focus), centerAt(buddy), COLORS.flanking);
+      line(centerAt(focus), centerAt(buddy), colors().flanking);
     }
   }
   const pairs = flankedBy(focus, tokens, opts);
   if (pairs.length === 0) return;
-  outline(boundsAt(focus), COLORS.flanked);
+  outline(boundsAt(focus), colors().flanked);
   for (const pair of pairs) {
-    line(centerAt(pair.a), centerAt(pair.b), COLORS.flanked, 0.45);
+    line(centerAt(pair.a), centerAt(pair.b), colors().flanked, 0.45);
   }
 }
 function drawPlacements(focus, tokens, opts) {
   const squares = flankingPlacements(focus, tokens, opts, {
-    searchRadius: setting("searchRadius"),
-    maxSquares: setting("maxSquares")
+    searchRadius: amount("searchRadius"),
+    maxSquares: amount("maxSquares")
   });
   const size = gridSize();
   const radius = Math.max(3, size / 12);
   for (const square of squares) {
-    dot(centerOf([square], size), COLORS.placement, radius);
+    dot(centerOf([square], size), colors().placement, radius);
   }
 }
-Hooks.once("init", registerSettings);
+Hooks.once("init", () => {
+  registerColors();
+  registerSettings();
+});
 for (const hook of [
   "canvasReady",
-  "canvasTearDown",
   "controlToken",
   "createToken",
   "deleteToken",

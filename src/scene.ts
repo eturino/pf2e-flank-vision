@@ -7,8 +7,7 @@ import {
   type Point,
   type Square,
 } from "./geometry.ts";
-
-export type Token = any;
+import { isFlankToken, type FlankToken } from "./pf2e.ts";
 
 export function gridSize(): number {
   return canvas.grid.size;
@@ -19,9 +18,9 @@ export function gridDistance(): number {
   return canvas.dimensions?.distance || 5;
 }
 
-export function occupiedSquares(token: Token): Square[] {
-  const offsets = token.document?.getOccupiedGridSpaceOffsets?.() ?? [];
-  if (offsets.length > 0) return offsets.map((o: { i: number; j: number }) => ({ x: o.j, y: o.i }));
+export function occupiedSquares(token: FlankToken): Square[] {
+  const offsets = token.document.getOccupiedGridSpaceOffsets();
+  if (offsets.length > 0) return offsets.map((offset) => ({ x: offset.j, y: offset.i }));
 
   // gridless scenes and anything else without offsets: fall back to the token's own footprint
   const size = gridSize();
@@ -36,38 +35,38 @@ export function occupiedSquares(token: Token): Square[] {
   return squares;
 }
 
-export function squaresAt(token: Token, at?: Square): Square[] {
+export function squaresAt(token: FlankToken, at?: Square): Square[] {
   const squares = occupiedSquares(token);
   return at ? shiftSquares(squares, at) : squares;
 }
 
-export function centerAt(token: Token, at?: Square): Point {
+export function centerAt(token: FlankToken, at?: Square): Point {
   return centerOf(squaresAt(token, at), gridSize());
 }
 
-export function boundsAt(token: Token, at?: Square): Bounds {
+export function boundsAt(token: FlankToken, at?: Square): Bounds {
   return boundsOf(squaresAt(token, at), gridSize());
 }
 
-export function reachInSquares(token: Token): number {
-  const feet = token.actor?.getReach?.({ action: "attack" }) ?? gridDistance();
+export function reachInSquares(token: FlankToken): number {
+  const feet = token.actor?.getReach({ action: "attack" }) ?? gridDistance();
   return Math.max(1, Math.round(feet / gridDistance()));
 }
 
-export function squareOf(token: Token): Square {
+export function squareOf(token: FlankToken): Square {
   const size = gridSize();
   return { x: Math.round(token.document.x / size), y: Math.round(token.document.y / size) };
 }
 
 /** Tokens a player is allowed to reason about: hidden ones only for the GM. */
-export function visibleTokens(): Token[] {
+export function visibleTokens(): FlankToken[] {
   const isGM = game.user.isGM;
-  return canvas.tokens.placeables.filter(
-    (t: Token) => t.actor && !t.isPreview && (isGM || !t.document.hidden),
-  );
+  return canvas.tokens.placeables
+    .filter(isFlankToken)
+    .filter((token) => !token.isPreview && (isGM || !token.document.hidden));
 }
 
-export function canOccupy(token: Token, at: Square, others: Token[]): boolean {
+export function canOccupy(token: FlankToken, at: Square, others: FlankToken[]): boolean {
   const squares = shiftSquares(occupiedSquares(token), at);
   const size = gridSize();
   const scene = canvas.dimensions.sceneRect;
@@ -89,15 +88,16 @@ export function wallBetween(a: Point, b: Point): boolean {
 }
 
 /** The token whose situation we report on: the controlled one, else the assigned character. */
-export function focusToken(): Token | null {
-  const controlled = canvas.tokens.controlled.filter((t: Token) => t.actor);
-  if (controlled.length > 0) return controlled[0];
+export function focusToken(): FlankToken | null {
+  const controlled = canvas.tokens.controlled.filter(isFlankToken);
+  const first = controlled.at(0);
+  if (first) return first;
   const character = game.user.character;
   if (!character) return null;
-  return canvas.tokens.placeables.find((t: Token) => t.actor?.id === character.id) ?? null;
+  return visibleTokens().find((token) => token.actor?.id === character.id) ?? null;
 }
 
 /** Drag clones live on the preview layer while a token is being moved. */
-export function previewTokens(): Token[] {
-  return (canvas.tokens.preview?.children ?? []).filter((t: Token) => t?.actor);
+export function previewTokens(): FlankToken[] {
+  return (canvas.tokens.preview?.children ?? []).filter(isFlankToken);
 }

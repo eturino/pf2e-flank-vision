@@ -1,6 +1,7 @@
 import { squareGap, surroundingSquares, type Square } from "./geometry.ts";
 import { buddiesFlanking, canFlank, isAlly, type Options } from "./flanking.ts";
-import { canOccupy, occupiedSquares, reachInSquares, squaresAt, type Token } from "./scene.ts";
+import type { FlankToken } from "./pf2e.ts";
+import { canOccupy, occupiedSquares, reachInSquares, squaresAt } from "./scene.ts";
 
 export interface PlacementLimits {
   /** Ignore enemies further away than this many squares. */
@@ -11,8 +12,8 @@ export interface PlacementLimits {
 
 /** Squares where `token` could stand and flank something, given where its allies already are. */
 export function flankingPlacements(
-  token: Token,
-  tokens: Token[],
+  token: FlankToken,
+  tokens: FlankToken[],
   opts: Options,
   limits: PlacementLimits,
 ): Square[] {

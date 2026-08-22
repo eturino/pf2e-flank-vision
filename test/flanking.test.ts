@@ -1,15 +1,20 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { buddiesFlanking, flankedBy, flankedEnemies, type Options } from "../src/flanking.ts";
+import { isFlankToken, type FlankToken } from "../src/pf2e.ts";
 import { flankingPlacements } from "../src/placement.ts";
 
 const GRID = 100;
 const OPTS: Options = { wallsBlock: false };
 
 beforeAll(() => {
-  (globalThis as any).canvas = {
-    grid: { size: GRID },
-    dimensions: { distance: 5, sceneRect: { x: -1000, y: -1000, width: 4000, height: 4000 } },
-  };
+  // `canvas` is a Foundry global; outside Foundry it has to be installed by hand
+  Object.defineProperty(globalThis, "canvas", {
+    configurable: true,
+    value: {
+      grid: { size: GRID },
+      dimensions: { distance: 5, sceneRect: { x: -1000, y: -1000, width: 4000, height: 4000 } },
+    },
+  });
 });
 
 interface Spec {
@@ -22,20 +27,34 @@ interface Spec {
   flankable?: boolean;
 }
 
-function token(name: string, spec: Spec): any {
+interface StubActor {
+  side: Spec["side"];
+  attributes: { flanking: { canFlank: boolean; flankable: boolean; canGangUp: (number | boolean | string)[] } };
+  canAttack: boolean;
+  getReach: () => number;
+  isAllyOf: (other: StubActor) => boolean;
+}
+
+/**
+ * Stub tokens go through the same runtime guard the module uses on real ones, so the tests
+ * fail if the guard and the stubs ever drift apart.
+ */
+function token(name: string, spec: Spec): FlankToken {
   const size = spec.size ?? 1;
-  const offsets = [];
+  const offsets: { i: number; j: number }[] = [];
   for (let i = 0; i < size; i++) {
     for (let j = 0; j < size; j++) offsets.push({ i: spec.y + i, j: spec.x + j });
   }
-  const actor: any = {
-    attributes: { flanking: { canFlank: true, flankable: spec.flankable ?? true, canGangUp: spec.gangUp ?? [] } },
+  const actor: StubActor = {
+    side: spec.side,
+    attributes: {
+      flanking: { canFlank: true, flankable: spec.flankable ?? true, canGangUp: spec.gangUp ?? [] },
+    },
     canAttack: true,
     getReach: () => spec.reach ?? 5,
+    isAllyOf: (other) => other.side === spec.side,
   };
-  actor.isAllyOf = (other: any) => other.side === spec.side;
-  actor.side = spec.side;
-  return {
+  const stub: unknown = {
     name,
     id: name,
     actor,
@@ -48,6 +67,8 @@ function token(name: string, spec: Spec): any {
       getOccupiedGridSpaceOffsets: () => offsets,
     },
   };
+  if (!isFlankToken(stub)) throw new Error(`stub token ${name} does not satisfy isFlankToken`);
+  return stub;
 }
 
 describe("flanking rules", () => {

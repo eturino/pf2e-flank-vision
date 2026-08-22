@@ -1,43 +1,43 @@
-import { COLORS, clearOverlay, destroyOverlay, dot, line, outline } from "./draw.ts";
+import { colors, registerColors } from "./colors.ts";
+import { clearOverlay, destroyOverlay, dot, line, outline } from "./draw.ts";
 import { flankedBy, flankedEnemies, flankedTokens, type Options } from "./flanking.ts";
-import { centerOf, type Square } from "./geometry.ts";
+import { centerOf } from "./geometry.ts";
+import type { FlankToken } from "./pf2e.ts";
 import { flankingPlacements } from "./placement.ts";
-import {
-  boundsAt,
-  centerAt,
-  focusToken,
-  gridSize,
-  previewTokens,
-  visibleTokens,
-  type Token,
-} from "./scene.ts";
+import { boundsAt, centerAt, focusToken, gridSize, previewTokens, visibleTokens } from "./scene.ts";
 
 const ID = "pf2e-flank-vision";
 
-type SettingKey =
-  | "enabled"
-  | "flankedMarkers"
-  | "selectedStatus"
-  | "dragPreview"
-  | "placementDots"
-  | "wallsBlock"
-  | "searchRadius"
-  | "maxSquares";
+type Toggle = "enabled" | "flankedMarkers" | "selectedStatus" | "dragPreview" | "placementDots" | "wallsBlock";
+type Amount = "searchRadius" | "maxSquares";
 
-function setting<T>(key: SettingKey): T {
-  return game.settings.get(ID, key) as T;
+const TOGGLES: Record<Toggle, boolean> = {
+  enabled: true,
+  flankedMarkers: true,
+  selectedStatus: true,
+  dragPreview: true,
+  placementDots: false,
+  wallsBlock: false,
+};
+
+const AMOUNTS: Record<Amount, number> = {
+  searchRadius: 12,
+  maxSquares: 400,
+};
+
+/** Settings come back as unknown; fall back to the registered default rather than trusting them. */
+function toggled(key: Toggle): boolean {
+  const value = game.settings.get(ID, key);
+  return typeof value === "boolean" ? value : TOGGLES[key];
+}
+
+function amount(key: Amount): number {
+  const value = game.settings.get(ID, key);
+  return typeof value === "number" ? value : AMOUNTS[key];
 }
 
 function registerSettings(): void {
-  const toggles: [SettingKey, boolean][] = [
-    ["enabled", true],
-    ["flankedMarkers", true],
-    ["selectedStatus", true],
-    ["dragPreview", true],
-    ["placementDots", false],
-    ["wallsBlock", false],
-  ];
-  for (const [key, initial] of toggles) {
+  for (const [key, initial] of Object.entries(TOGGLES)) {
     game.settings.register(ID, key, {
       name: `${ID}.settings.${key}.name`,
       hint: `${ID}.settings.${key}.hint`,
@@ -48,11 +48,7 @@ function registerSettings(): void {
       onChange: () => requestRender(),
     });
   }
-  const numbers: [SettingKey, number][] = [
-    ["searchRadius", 12],
-    ["maxSquares", 400],
-  ];
-  for (const [key, initial] of numbers) {
+  for (const [key, initial] of Object.entries(AMOUNTS)) {
     game.settings.register(ID, key, {
       name: `${ID}.settings.${key}.name`,
       hint: `${ID}.settings.${key}.hint`,
@@ -68,7 +64,7 @@ function registerSettings(): void {
     name: `${ID}.keybindings.toggle.name`,
     editable: [{ key: "KeyF", modifiers: ["Alt"] }],
     onDown: () => {
-      game.settings.set(ID, "enabled", !setting<boolean>("enabled"));
+      game.settings.set(ID, "enabled", !toggled("enabled"));
       return true;
     },
   });
@@ -96,71 +92,71 @@ function requestRender(): void {
 
 function render(): void {
   clearOverlay();
-  if (!setting<boolean>("enabled") || !canvas?.ready || !canvas.scene) return;
+  if (!toggled("enabled") || !canvas.ready || !canvas.scene) return;
 
-  const opts: Options = { wallsBlock: setting<boolean>("wallsBlock") };
+  const opts: Options = { wallsBlock: toggled("wallsBlock") };
   // ponytail: only the first dragged token gets a preview; multi-token drags fall back to its view
-  const preview = setting<boolean>("dragPreview") ? (previewTokens()[0] ?? null) : null;
+  const preview = toggled("dragPreview") ? (previewTokens()[0] ?? null) : null;
   const all = visibleTokens();
-  const source: Token | null = preview
-    ? (preview._original ?? all.find((t: Token) => t.id === preview.id) ?? null)
-    : null;
+  const source = preview ? (preview._original ?? all.find((t) => t.id === preview.id) ?? null) : null;
   // the drag clone sits at the prospective position, so it stands in for its source token
-  const tokens = all.filter((t: Token) => t !== source);
+  const tokens = all.filter((token) => token !== source);
   if (preview) tokens.push(preview);
 
   const focus = preview ?? focusToken();
 
-  if (setting<boolean>("flankedMarkers")) {
+  if (toggled("flankedMarkers")) {
     for (const [token] of flankedTokens(tokens, opts)) {
-      outline(boundsAt(token), COLORS.otherFlanked, 0.45);
+      outline(boundsAt(token), colors().otherFlanked, 0.45);
     }
   }
 
   if (!focus) return;
 
-  if (setting<boolean>("placementDots") && !preview) {
+  if (toggled("placementDots") && !preview) {
     drawPlacements(focus, tokens, opts);
   }
 
-  if (setting<boolean>("selectedStatus") || preview) {
+  if (toggled("selectedStatus") || preview) {
     drawFocusStatus(focus, tokens, opts);
   }
 }
 
-function drawFocusStatus(focus: Token, tokens: Token[], opts: Options): void {
+function drawFocusStatus(focus: FlankToken, tokens: FlankToken[], opts: Options): void {
   for (const [enemy, buddies] of flankedEnemies(focus, tokens, opts)) {
-    outline(boundsAt(enemy), COLORS.flanking);
+    outline(boundsAt(enemy), colors().flanking);
     for (const buddy of buddies) {
-      line(centerAt(focus), centerAt(buddy), COLORS.flanking);
+      line(centerAt(focus), centerAt(buddy), colors().flanking);
     }
   }
 
   const pairs = flankedBy(focus, tokens, opts);
   if (pairs.length === 0) return;
-  outline(boundsAt(focus), COLORS.flanked);
+  outline(boundsAt(focus), colors().flanked);
   for (const pair of pairs) {
-    line(centerAt(pair.a), centerAt(pair.b), COLORS.flanked, 0.45);
+    line(centerAt(pair.a), centerAt(pair.b), colors().flanked, 0.45);
   }
 }
 
-function drawPlacements(focus: Token, tokens: Token[], opts: Options): void {
+function drawPlacements(focus: FlankToken, tokens: FlankToken[], opts: Options): void {
   const squares = flankingPlacements(focus, tokens, opts, {
-    searchRadius: setting<number>("searchRadius"),
-    maxSquares: setting<number>("maxSquares"),
+    searchRadius: amount("searchRadius"),
+    maxSquares: amount("maxSquares"),
   });
   const size = gridSize();
   const radius = Math.max(3, size / 12);
   for (const square of squares) {
-    dot(centerOf([square as Square], size), COLORS.placement, radius);
+    dot(centerOf([square], size), colors().placement, radius);
   }
 }
 
-Hooks.once("init", registerSettings);
+Hooks.once("init", () => {
+  registerColors();
+  registerSettings();
+});
 
 for (const hook of [
   "canvasReady",
-  "canvasTearDown",
   "controlToken",
   "createToken",
   "deleteToken",
