@@ -24,7 +24,12 @@ https://github.com/user-attachments/assets/8a92214d-ca6c-420f-8c3d-f3a1cb53e27b
 
 ## Requirements
 
-Foundry VTT v14, PF2e system v8.
+Foundry VTT v14, PF2e system v8, and a **square-grid scene**.
+
+Hexagonal and gridless scenes are not supported. PF2e's flanking rules are written in grid
+squares, and so is everything this module measures - reach, footprints, the squares you could
+move to. On a non-square scene the module draws nothing and warns once, rather than showing
+outlines and distances that would be quietly wrong. Every other scene on the world keeps working.
 
 
 ## Install
@@ -88,8 +93,7 @@ is the single boundary.
 
 ## Known limits
 
-- **Square grids only.** On hex or gridless scenes the module bails out and says so rather than
-  drawing overlays it would get wrong.
+- **Square grids only** (see Requirements). Hex and gridless scenes are skipped with a warning.
 - Multi-token drags preview only the first token.
 - Gang Up is supported in its numeric/always form; the Animal Companion (Side by Side)
   and eidolon variants are not.

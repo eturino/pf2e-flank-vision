@@ -1,7 +1,7 @@
 {
   "id": "pf2e-flank-vision",
   "title": "PF2e Flank Vision",
-  "description": "Live flanking feedback for Pathfinder 2e: see who is flanked, who you flank, whether you are flanked, and where you could stand - including a preview while you drag.",
+  "description": "Live flanking feedback for Pathfinder 2e: see who is flanked, who you flank, whether you are flanked, and where you could stand - including a preview while you drag. Square grids only.",
   "version": "0.1.0",
   "authors": [
     {
