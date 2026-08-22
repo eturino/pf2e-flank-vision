@@ -1,6 +1,7 @@
-import { onOppositeSides, withinReach, type Square } from "./geometry.ts";
+import { withinReach } from "./distance.ts";
+import { onOppositeSides, type Square } from "./geometry.ts";
 import type { FlankToken } from "./pf2e.ts";
-import { boundsAt, centerAt, reachInSquares, squaresAt, wallBetween } from "./scene.ts";
+import { boundsAt, centerAt, footprintAt, gridDistance, reachInFeet, wallBetween } from "./scene.ts";
 
 export interface Options {
   wallsBlock: boolean;
@@ -19,9 +20,11 @@ export function canFlank(attacker: FlankToken, flankee: FlankToken, attackerAt?:
   if (!actor || !target) return false;
   if (!actor.attributes?.flanking?.canFlank) return false;
   if (!target.attributes?.flanking?.flankable) return false;
-  if (actor.canAttack === false) return false;
+  if (!actor.canAttack) return false;
+  if (attacker.document.hidden || flankee.document.hidden) return false;
   if (actor.isAllyOf?.(target)) return false;
-  return withinReach(squaresAt(attacker, attackerAt), squaresAt(flankee), reachInSquares(attacker));
+  const reach = reachInFeet(attacker);
+  return withinReach(footprintAt(attacker, attackerAt), footprintAt(flankee), reach, gridDistance());
 }
 
 export function isAlly(a: FlankToken, b: FlankToken): boolean {
@@ -39,10 +42,12 @@ function opposite(attacker: FlankToken, buddy: FlankToken, flankee: FlankToken, 
 
 /** Gang Up and friends: some feats flank on ally count alone. Companion-specific variants are not covered. */
 function gangsUp(attacker: FlankToken, buddies: FlankToken[]): boolean {
-  const canGangUp: unknown[] = attacker.actor?.attributes?.flanking?.canGangUp ?? [];
-  return canGangUp.some(
-    (g) => (typeof g === "number" && g <= buddies.length) || (g === true && buddies.length >= 1),
-  );
+  const own = attacker.actor?.attributes.flanking.canGangUp ?? [];
+  if (own.some((g) => (typeof g === "number" && g <= buddies.length) || (g === true && buddies.length >= 1))) {
+    return true;
+  }
+  // an ally with Gang Up grants the flank to whoever it is ganging up with, not just itself
+  return buddies.some((buddy) => (buddy.actor?.attributes.flanking.canGangUp ?? []).some((g) => g === true));
 }
 
 /** Allies that let `attacker` flank `flankee` from `at`. Empty means no flank. */

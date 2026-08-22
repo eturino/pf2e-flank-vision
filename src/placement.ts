@@ -1,7 +1,7 @@
 import { squareGap, surroundingSquares, type Square } from "./geometry.ts";
 import { buddiesFlanking, canFlank, isAlly, type Options } from "./flanking.ts";
 import type { FlankToken } from "./pf2e.ts";
-import { canOccupy, occupiedSquares, reachInSquares, squaresAt } from "./scene.ts";
+import { canOccupy, gridDistance, occupiedSquares, reachInFeet, squaresAt } from "./scene.ts";
 
 export interface PlacementLimits {
   /** Ignore enemies further away than this many squares. */
@@ -19,7 +19,8 @@ export function flankingPlacements(
 ): Square[] {
   const own = occupiedSquares(token);
   const span = Math.max(...own.map((s) => s.x)) - Math.min(...own.map((s) => s.x)) + 1;
-  const reach = reachInSquares(token);
+  // scan radius only - the real reach test happens in canFlank, under PF2e's own distance rules
+  const reach = Math.ceil(reachInFeet(token) / gridDistance());
   const found = new Map<string, Square>();
 
   const enemies = tokens.filter(

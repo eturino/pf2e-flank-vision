@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+      # Foundry requires a release manifest to point at that exact version, never a branch
+      - name: Stamp the manifest with this tag
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          export VERSION="${TAG#v}"
+          export BASE="https://github.com/$REPO/releases/download/$TAG"
+          node --input-type=module -e '
+            import { readFileSync, writeFileSync } from "node:fs";
+            const manifest = JSON.parse(readFileSync("module.json", "utf8"));
+            manifest.version = process.env.VERSION;
+            manifest.manifest = `${process.env.BASE}/module.json`;
+            manifest.download = `${process.env.BASE}/module.zip`;
+            writeFileSync("module.json", `${JSON.stringify(manifest, null, 2)}\n`);
+          '
+      - name: Package
+        run: zip -r module.zip module.json dist lang README.md LICENSE
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            module.json
+            module.zip
+          generate_release_notes: true

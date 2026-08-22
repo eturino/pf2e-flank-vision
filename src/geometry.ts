@@ -31,7 +31,11 @@ export function shiftSquares(squares: Square[], to: Square): Square[] {
   return squares.map((s) => ({ x: s.x + dx, y: s.y + dy }));
 }
 
-/** Squares between the two closest occupied squares. PF2e counts every diagonal as one square. */
+/**
+ * Chebyshev squares between the two closest occupied squares. This UNDERSTATES PF2e distance
+ * (which alternates diagonals - see distance.ts), so it is only safe as a coarse "is anything
+ * near enough to bother with" filter, never as a reach test.
+ */
 export function squareGap(a: Square[], b: Square[]): number {
   let min = Infinity;
   for (const sa of a) {
@@ -41,10 +45,6 @@ export function squareGap(a: Square[], b: Square[]): number {
     }
   }
   return min;
-}
-
-export function withinReach(a: Square[], b: Square[], reachSquares: number): boolean {
-  return squareGap(a, b) <= reachSquares;
 }
 
 export function overlaps(a: Square[], b: Square[]): boolean {

@@ -29,11 +29,15 @@ Foundry VTT v14, PF2e system v8.
 
 ## Install
 
-Add-on module manifest URL (works once the repository is public):
+Add-on module manifest URL (works once the repository is public and a release is tagged):
 
 ```
-https://raw.githubusercontent.com/eturino/pf2e-flank-vision/main/module.json
+https://github.com/eturino/pf2e-flank-vision/releases/latest/download/module.json
 ```
+
+Tagging `vX.Y.Z` builds, tests, stamps the manifest with that tag and publishes
+`module.json` + `module.zip` as release assets - Foundry requires a release manifest to point
+at its own exact version rather than a branch.
 
 On the media server the module is a git clone, so updates are a pull:
 
@@ -47,8 +51,8 @@ cd pf2e-flank-vision && git pull                         # updates
 
 ## Settings
 
-All client-scoped, so each player picks their own overlays. `Alt+F` toggles the module
-without opening settings.
+All client-scoped, so each player picks their own overlays. There is deliberately no keybinding
+yet - see the proposal in [docs/2026-08-23-review.md](docs/2026-08-23-review.md).
 
 | Setting | Default | What it does |
 | --- | --- | --- |
@@ -71,18 +75,35 @@ pnpm build       # esbuild -> dist/flank-vision.js
 pnpm watch
 ```
 
-`src/geometry.ts` is pure math and fully unit-tested. `src/flanking.ts` holds the rules,
-tested against stub tokens. `src/scene.ts` is the only place that talks to Foundry's
-canvas API, `src/draw.ts` the only place that draws.
+`src/geometry.ts` and `src/distance.ts` are pure math and unit-tested - the latter is a port of
+PF2e's own grid measurement (diagonals alternate 5/10). `src/flanking.ts` holds the rules, tested
+against stub tokens that are pushed through the same runtime guard real tokens go through.
+`src/scene.ts` is the only place that talks to Foundry's canvas API, `src/draw.ts` the only place
+that draws, and `src/colors.ts` puts the palette on `CONFIG.pf2eFlankVision.colors` so a world
+can restyle the overlay from a macro.
+
+Types come from `@dfreds/foundry-types` (the PF2e system's own definitions, versioned to Foundry
+builds). There is no `any` and no type assertion in the codebase; `isFlankToken` in `src/pf2e.ts`
+is the single boundary.
 
 ## Known limits
 
+- **Square grids only.** On hex or gridless scenes the module bails out and says so rather than
+  drawing overlays it would get wrong.
 - Multi-token drags preview only the first token.
 - Gang Up is supported in its numeric/always form; the Animal Companion (Side by Side)
   and eidolon variants are not.
 - The draw is O(tokens^2) with no caching, recomputed at most once per animation frame.
 - Flanking positions ignore terrain cost and difficult terrain - they answer "could I
   flank from there", not "can I get there this turn".
+- The overlay answers the rules question, not the automation one: with the system's flanking
+  automation disabled it still shows flanks the system will not turn into off-guard.
+
+## Review
+
+[docs/2026-08-23-review.md](docs/2026-08-23-review.md) records the two-agent review of the first
+implementation: what was wrong (reach measurement, elevation, hidden tokens, non-square grids),
+what was fixed, and what is deliberately left alone.
 
 ## Verifying in Foundry
 

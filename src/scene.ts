@@ -7,6 +7,7 @@ import {
   type Point,
   type Square,
 } from "./geometry.ts";
+import type { Footprint } from "./distance.ts";
 import { isFlankToken, type FlankToken } from "./pf2e.ts";
 
 export function gridSize(): number {
@@ -48,9 +49,17 @@ export function boundsAt(token: FlankToken, at?: Square): Bounds {
   return boundsOf(squaresAt(token, at), gridSize());
 }
 
-export function reachInSquares(token: FlankToken): number {
-  const feet = token.actor?.getReach({ action: "attack" }) ?? gridDistance();
-  return Math.max(1, Math.round(feet / gridDistance()));
+export function reachInFeet(token: FlankToken): number {
+  return token.actor?.getReach({ action: "attack" }) ?? gridDistance();
+}
+
+/** Squares plus vertical span: PF2e measures elevation as part of the same distance. */
+export function footprintAt(token: FlankToken, at?: Square): Footprint {
+  return {
+    squares: squaresAt(token, at),
+    elevation: token.document.elevation,
+    height: token.actor?.dimensions?.height ?? gridDistance(),
+  };
 }
 
 export function squareOf(token: FlankToken): Square {
@@ -58,12 +67,20 @@ export function squareOf(token: FlankToken): Square {
   return { x: Math.round(token.document.x / size), y: Math.round(token.document.y / size) };
 }
 
-/** Tokens a player is allowed to reason about: hidden ones only for the GM. */
+/**
+ * Tokens this client may reason about. GM-hidden tokens are out for everyone, matching PF2e
+ * (`canFlank` refuses when either token is hidden), and tokens the player cannot see are out
+ * too - drawing an outline on one would leak its position.
+ */
 export function visibleTokens(): FlankToken[] {
-  const isGM = game.user.isGM;
   return canvas.tokens.placeables
     .filter(isFlankToken)
-    .filter((token) => !token.isPreview && (isGM || !token.document.hidden));
+    .filter((token) => !token.isPreview && !token.document.hidden && (game.user.isGM || token.visible));
+}
+
+/** This module's geometry assumes square grids; hex and gridless would be drawn wrong. */
+export function isSupportedGrid(): boolean {
+  return canvas.grid.type === CONST.GRID_TYPES.SQUARE;
 }
 
 export function canOccupy(token: FlankToken, at: Square, others: FlankToken[]): boolean {

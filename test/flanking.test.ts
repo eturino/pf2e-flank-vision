@@ -25,12 +25,14 @@ interface Spec {
   reach?: number;
   gangUp?: (number | true)[];
   flankable?: boolean;
+  elevation?: number;
 }
 
 interface StubActor {
   side: Spec["side"];
   attributes: { flanking: { canFlank: boolean; flankable: boolean; canGangUp: (number | boolean | string)[] } };
   canAttack: boolean;
+  dimensions: { height: number };
   getReach: () => number;
   isAllyOf: (other: StubActor) => boolean;
 }
@@ -51,6 +53,7 @@ function token(name: string, spec: Spec): FlankToken {
       flanking: { canFlank: true, flankable: spec.flankable ?? true, canGangUp: spec.gangUp ?? [] },
     },
     canAttack: true,
+    dimensions: { height: 5 },
     getReach: () => spec.reach ?? 5,
     isAllyOf: (other) => other.side === spec.side,
   };
@@ -64,6 +67,7 @@ function token(name: string, spec: Spec): FlankToken {
       width: size,
       height: size,
       hidden: false,
+      elevation: spec.elevation ?? 0,
       getOccupiedGridSpaceOffsets: () => offsets,
     },
   };

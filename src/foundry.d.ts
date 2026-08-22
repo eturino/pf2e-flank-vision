@@ -12,6 +12,9 @@ declare global {
   const game: Game<Actor<null>, Actors<Actor<null>>, ChatMessage, Combat, Item<null>, Macro, Scene, User>;
   const canvas: Canvas;
 
+  /** Narrowed to the one notification channel this module uses. */
+  const ui: { notifications: { warn(message: string): void } };
+
   /** Narrowed to what this module reads: the full Config interface takes 21 type parameters. */
   const CONFIG: {
     Canvas: {

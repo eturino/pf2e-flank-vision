@@ -43,6 +43,44 @@ function dot(point, color, radius, alpha = 0.7) {
   overlay().lineStyle(1, 0, alpha).beginFill(color, alpha).drawCircle(point.x, point.y, radius).endFill();
 }
 
+// src/distance.ts
+function extent(squares, axis) {
+  const values = squares.map((square) => square[axis]);
+  return { min: Math.min(...values), max: Math.max(...values) };
+}
+function spansOverlap(a, b) {
+  return a.min <= b.max && b.min <= a.max;
+}
+function axisSteps(a, b) {
+  return Math.max(a.min - b.max - 1, b.min - a.max - 1, 0) + 1;
+}
+function elevationSteps(a, b, gridDistance2) {
+  const spanA = { min: a.elevation, max: a.elevation + a.height };
+  const spanB = { min: b.elevation, max: b.elevation + b.height };
+  if (spansOverlap(spanA, spanB)) return 0;
+  const gap = Math.max(spanA.min - spanB.max, spanB.min - spanA.max, 0);
+  return Math.ceil(gap / gridDistance2) + 1;
+}
+function measureDistanceFeet(a, b, { gridDistance: gridDistance2, reach }) {
+  const [ax, ay] = [extent(a.squares, "x"), extent(a.squares, "y")];
+  const [bx, by] = [extent(b.squares, "x"), extent(b.squares, "y")];
+  const sharesFootprint = spansOverlap(ax, bx) && spansOverlap(ay, by);
+  const steps = [
+    sharesFootprint ? 0 : axisSteps(ax, bx),
+    sharesFootprint ? 0 : axisSteps(ay, by),
+    elevationSteps(a, b, gridDistance2)
+  ].sort((left, right) => left - right);
+  const doubleDiagonal = steps[0] ?? 0;
+  const diagonal = (steps[1] ?? 0) - doubleDiagonal;
+  const straight = (steps[2] ?? 0) - (steps[1] ?? 0);
+  const reduction = doubleDiagonal + diagonal > 1 && reach === 10 ? 1 : 0;
+  const squares = Math.floor(doubleDiagonal * 1.75 + diagonal * 1.5 + straight) - reduction;
+  return squares * gridDistance2;
+}
+function withinReach(a, b, reach, gridDistance2) {
+  return measureDistanceFeet(a, b, { gridDistance: gridDistance2, reach }) <= reach;
+}
+
 // src/geometry.ts
 function topLeft(squares) {
   return squares.reduce(
@@ -65,9 +103,6 @@ function squareGap(a, b) {
     }
   }
   return min;
-}
-function withinReach(a, b, reachSquares) {
-  return squareGap(a, b) <= reachSquares;
 }
 function overlaps(a, b) {
   return squareGap(a, b) === 0;
@@ -166,13 +201,21 @@ function centerAt(token, at) {
 function boundsAt(token, at) {
   return boundsOf(squaresAt(token, at), gridSize());
 }
-function reachInSquares(token) {
-  const feet = token.actor?.getReach({ action: "attack" }) ?? gridDistance();
-  return Math.max(1, Math.round(feet / gridDistance()));
+function reachInFeet(token) {
+  return token.actor?.getReach({ action: "attack" }) ?? gridDistance();
+}
+function footprintAt(token, at) {
+  return {
+    squares: squaresAt(token, at),
+    elevation: token.document.elevation,
+    height: token.actor?.dimensions?.height ?? gridDistance()
+  };
 }
 function visibleTokens() {
-  const isGM = game.user.isGM;
-  return canvas.tokens.placeables.filter(isFlankToken).filter((token) => !token.isPreview && (isGM || !token.document.hidden));
+  return canvas.tokens.placeables.filter(isFlankToken).filter((token) => !token.isPreview && !token.document.hidden && (game.user.isGM || token.visible));
+}
+function isSupportedGrid() {
+  return canvas.grid.type === CONST.GRID_TYPES.SQUARE;
 }
 function canOccupy(token, at, others) {
   const squares = shiftSquares(occupiedSquares(token), at);
@@ -212,9 +255,11 @@ function canFlank(attacker, flankee, attackerAt) {
   if (!actor || !target) return false;
   if (!actor.attributes?.flanking?.canFlank) return false;
   if (!target.attributes?.flanking?.flankable) return false;
-  if (actor.canAttack === false) return false;
+  if (!actor.canAttack) return false;
+  if (attacker.document.hidden || flankee.document.hidden) return false;
   if (actor.isAllyOf?.(target)) return false;
-  return withinReach(squaresAt(attacker, attackerAt), squaresAt(flankee), reachInSquares(attacker));
+  const reach = reachInFeet(attacker);
+  return withinReach(footprintAt(attacker, attackerAt), footprintAt(flankee), reach, gridDistance());
 }
 function isAlly(a, b) {
   if (!a.actor || !b.actor) return false;
@@ -228,10 +273,11 @@ function opposite(attacker, buddy, flankee, at, opts) {
   return !(opts.wallsBlock && wallBetween(centerA, centerB));
 }
 function gangsUp(attacker, buddies) {
-  const canGangUp = attacker.actor?.attributes?.flanking?.canGangUp ?? [];
-  return canGangUp.some(
-    (g) => typeof g === "number" && g <= buddies.length || g === true && buddies.length >= 1
-  );
+  const own = attacker.actor?.attributes.flanking.canGangUp ?? [];
+  if (own.some((g) => typeof g === "number" && g <= buddies.length || g === true && buddies.length >= 1)) {
+    return true;
+  }
+  return buddies.some((buddy) => (buddy.actor?.attributes.flanking.canGangUp ?? []).some((g) => g === true));
 }
 function buddiesFlanking(attacker, flankee, tokens, opts, at) {
   if (!canFlank(attacker, flankee, at)) return [];
@@ -276,7 +322,7 @@ function flankedTokens(tokens, opts) {
 function flankingPlacements(token, tokens, opts, limits) {
   const own = occupiedSquares(token);
   const span = Math.max(...own.map((s) => s.x)) - Math.min(...own.map((s) => s.x)) + 1;
-  const reach = reachInSquares(token);
+  const reach = Math.ceil(reachInFeet(token) / gridDistance());
   const found = /* @__PURE__ */ new Map();
   const enemies = tokens.filter(
     (enemy) => !isAlly(token, enemy) && enemy !== token && enemy.actor?.attributes?.flanking?.flankable && squareGap(own, squaresAt(enemy)) <= limits.searchRadius && // no ally threatening it means no square of ours can flank it
@@ -341,14 +387,6 @@ function registerSettings() {
       onChange: () => requestRender()
     });
   }
-  game.keybindings.register(ID, "toggle", {
-    name: `${ID}.keybindings.toggle.name`,
-    editable: [{ key: "KeyF", modifiers: ["Alt"] }],
-    onDown: () => {
-      game.settings.set(ID, "enabled", !toggled("enabled"));
-      return true;
-    }
-  });
 }
 var pending = false;
 function requestRender() {
@@ -363,9 +401,17 @@ function requestRender() {
     }
   });
 }
+var warnedAboutGrid = false;
 function render() {
   clearOverlay();
   if (!toggled("enabled") || !canvas.ready || !canvas.scene) return;
+  if (!isSupportedGrid()) {
+    if (!warnedAboutGrid) {
+      warnedAboutGrid = true;
+      ui.notifications.warn(game.i18n.localize(`${ID}.notifications.unsupportedGrid`));
+    }
+    return;
+  }
   const opts = { wallsBlock: toggled("wallsBlock") };
   const preview = toggled("dragPreview") ? previewTokens()[0] ?? null : null;
   const all = visibleTokens();
@@ -415,22 +461,28 @@ Hooks.once("init", () => {
   registerColors();
   registerSettings();
 });
+Hooks.on("canvasReady", () => {
+  warnedAboutGrid = false;
+  requestRender();
+});
+Hooks.on("refreshToken", () => {
+  if (canvas.tokens?.preview?.children.length) requestRender();
+});
 for (const hook of [
-  "canvasReady",
   "controlToken",
   "createToken",
   "deleteToken",
   "updateToken",
   "moveToken",
   "stopToken",
-  "refreshToken",
-  "updateActor",
   "createItem",
   "updateItem",
   "deleteItem",
-  "createActiveEffect",
-  "deleteActiveEffect",
-  "updateCombat"
+  "updateActor",
+  "updateCombat",
+  "createWall",
+  "updateWall",
+  "deleteWall"
 ]) {
   Hooks.on(hook, () => requestRender());
 }

@@ -12,6 +12,8 @@ export interface FlankActor extends Actor<TokenDocument<Scene> | null> {
   attributes: { flanking: FlankingAttributes };
   canAttack: boolean;
   isAllyOf(other: FlankActor): boolean;
+  /** Creature size in feet; absent on actors that are not creatures. */
+  dimensions?: { height: number };
   getReach(options: { action: "attack" | "interact" }): number;
 }
 

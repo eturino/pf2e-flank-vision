@@ -4,7 +4,15 @@ import { flankedBy, flankedEnemies, flankedTokens, type Options } from "./flanki
 import { centerOf } from "./geometry.ts";
 import type { FlankToken } from "./pf2e.ts";
 import { flankingPlacements } from "./placement.ts";
-import { boundsAt, centerAt, focusToken, gridSize, previewTokens, visibleTokens } from "./scene.ts";
+import {
+  boundsAt,
+  centerAt,
+  focusToken,
+  gridSize,
+  isSupportedGrid,
+  previewTokens,
+  visibleTokens,
+} from "./scene.ts";
 
 const ID = "pf2e-flank-vision";
 
@@ -60,14 +68,6 @@ function registerSettings(): void {
     });
   }
 
-  game.keybindings.register(ID, "toggle", {
-    name: `${ID}.keybindings.toggle.name`,
-    editable: [{ key: "KeyF", modifiers: ["Alt"] }],
-    onDown: () => {
-      game.settings.set(ID, "enabled", !toggled("enabled"));
-      return true;
-    },
-  });
 }
 
 let pending = false;
@@ -90,9 +90,19 @@ function requestRender(): void {
   });
 }
 
+let warnedAboutGrid = false;
+
 function render(): void {
   clearOverlay();
   if (!toggled("enabled") || !canvas.ready || !canvas.scene) return;
+
+  if (!isSupportedGrid()) {
+    if (!warnedAboutGrid) {
+      warnedAboutGrid = true;
+      ui.notifications.warn(game.i18n.localize(`${ID}.notifications.unsupportedGrid`));
+    }
+    return;
+  }
 
   const opts: Options = { wallsBlock: toggled("wallsBlock") };
   // ponytail: only the first dragged token gets a preview; multi-token drags fall back to its view
@@ -155,22 +165,35 @@ Hooks.once("init", () => {
   registerSettings();
 });
 
+Hooks.on("canvasReady", () => {
+  warnedAboutGrid = false;
+  requestRender();
+});
+
+/**
+ * refreshToken fires per animation frame per token, so it is only worth listening to while a
+ * drag preview exists - that is the one thing no other hook reports early enough.
+ */
+Hooks.on("refreshToken", () => {
+  if (canvas.tokens?.preview?.children.length) requestRender();
+});
+
+// PF2e builds ActiveEffects ephemerally from items, so the item hooks cover effects too
 for (const hook of [
-  "canvasReady",
   "controlToken",
   "createToken",
   "deleteToken",
   "updateToken",
   "moveToken",
   "stopToken",
-  "refreshToken",
-  "updateActor",
   "createItem",
   "updateItem",
   "deleteItem",
-  "createActiveEffect",
-  "deleteActiveEffect",
+  "updateActor",
   "updateCombat",
+  "createWall",
+  "updateWall",
+  "deleteWall",
 ]) {
   Hooks.on(hook, () => requestRender());
 }
