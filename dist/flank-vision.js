@@ -378,8 +378,12 @@ function registerSettings() {
   }
 }
 var pending = false;
+var rerun = false;
 function requestRender() {
-  if (pending) return;
+  if (pending) {
+    rerun = true;
+    return;
+  }
   pending = true;
   requestAnimationFrame(() => {
     pending = false;
@@ -387,6 +391,10 @@ function requestRender() {
       render();
     } catch (error) {
       console.error(`${ID} | render failed`, error);
+    }
+    if (rerun) {
+      rerun = false;
+      requestRender();
     }
   });
 }

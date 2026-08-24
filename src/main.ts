@@ -71,14 +71,22 @@ function registerSettings(): void {
 }
 
 let pending = false;
+let rerun = false;
 
 /**
- * Coalesce the bursts of hooks a single drag or update produces into one draw.
+ * Coalesce the bursts of hooks a single drag or update produces into one draw. A request that
+ * arrives while one is in flight buys one more frame rather than being dropped: a drop fires
+ * `updateToken` while the drag clone is still alive, so the render it arms sees the token on the
+ * square it came from, and whatever fires after the clone dies is the one that gets it right.
+ *
  * ponytail: the draw itself is O(tokens^2) with no caching - cache per-token squares if a
  * scene ever gets crowded enough to drop frames while dragging.
  */
 function requestRender(): void {
-  if (pending) return;
+  if (pending) {
+    rerun = true;
+    return;
+  }
   pending = true;
   requestAnimationFrame(() => {
     pending = false;
@@ -86,6 +94,10 @@ function requestRender(): void {
       render();
     } catch (error) {
       console.error(`${ID} | render failed`, error);
+    }
+    if (rerun) {
+      rerun = false;
+      requestRender();
     }
   });
 }
