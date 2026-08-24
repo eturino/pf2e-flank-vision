@@ -168,12 +168,20 @@ Hooks.on("canvasReady", () => {
   requestRender();
 });
 
+let hadPreview = false;
+
 /**
  * refreshToken fires per animation frame per token, so it is only worth listening to while a
  * drag preview exists - that is the one thing no other hook reports early enough.
+ *
+ * The frame the clone disappears is worth one more. `updateToken` and `moveToken` both fire while
+ * it is still live, so the last render of a drop would otherwise draw the token on the square it
+ * came from, and nothing afterwards would correct it.
  */
 Hooks.on("refreshToken", () => {
-  if (canvas.tokens.preview?.children.length) requestRender();
+  const live = !!canvas.tokens.preview?.children.length;
+  if (live || hadPreview) requestRender();
+  hadPreview = live;
 });
 
 // PF2e builds ActiveEffects ephemerally from items, so the item hooks cover effects too

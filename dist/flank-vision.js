@@ -452,8 +452,11 @@ Hooks.on("canvasReady", () => {
   warnedAboutGrid = false;
   requestRender();
 });
+var hadPreview = false;
 Hooks.on("refreshToken", () => {
-  if (canvas.tokens.preview?.children.length) requestRender();
+  const live = !!canvas.tokens.preview?.children.length;
+  if (live || hadPreview) requestRender();
+  hadPreview = live;
 });
 for (const hook of [
   "controlToken",

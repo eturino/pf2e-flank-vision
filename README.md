@@ -121,6 +121,7 @@ Nothing below is covered by the unit tests, so check once after installing:
 3. Stand between two enemies - your token outlined red.
 4. Turn on flanking positions with an ally next to an enemy - dots opposite the ally.
 5. Give someone a reach weapon or Lunge - the reachable ring grows.
+6. Move a flanked token away - the outline leaves its old square with it.
 
 ## Credits
 
