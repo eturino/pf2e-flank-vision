@@ -46,7 +46,7 @@ jobs:
             module.json > module.json.stamped && mv module.json.stamped module.json
 
       - name: Package
-        run: zip -r module.zip module.json dist lang README.md LICENSE
+        run: zip -r module.zip module.json dist lang README.md CHANGELOG.md LICENSE
 
       - uses: softprops/action-gh-release@v2
         with:

@@ -1,6 +1,6 @@
 {
   "name": "pf2e-flank-vision",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Live PF2e flanking feedback for Foundry VTT v14.",
   "private": true,
   "type": "module",

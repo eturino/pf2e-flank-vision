@@ -34,7 +34,7 @@ outlines and distances that would be quietly wrong. Every other scene on the wor
 
 ## Install
 
-Add-on module manifest URL (works once the repository is public and a release is tagged):
+Add-on module manifest URL:
 
 ```
 https://github.com/eturino/pf2e-flank-vision/releases/latest/download/module.json
@@ -60,7 +60,7 @@ without its build.
 ## Settings
 
 All client-scoped, so each player picks their own overlays. There is deliberately no keybinding
-yet - see the proposal in [docs/2026-08-23-review.md](docs/2026-08-23-review.md).
+yet - see Known limits.
 
 | Setting | Default | What it does |
 | --- | --- | --- |
@@ -92,7 +92,13 @@ can restyle the overlay from a macro.
 
 `CONFIG.pf2eFlankVision.debug = true` traces every render request, frame and draw to the console
 with the position each one measured from. The overlay depends on canvas timing no unit test can
-reach, so this is how the last bug in it was found.
+reach, so this is how the last bug in it was found - reach for it before reasoning about frame
+ordering.
+
+[docs/foundry-v14-canvas-notes.md](docs/foundry-v14-canvas-notes.md) is the reading before
+touching `src/scene.ts` or the hooks in `src/main.ts`: how v14 animates a token's position, why
+`movement.state` cannot tell you a token is moving, why a drag clone inverts which source to
+trust, and the hook order on a drop.
 
 Types come from `@dfreds/foundry-types` (the PF2e system's own definitions, versioned to Foundry
 builds). There is no `any` and no type assertion in the codebase; `isFlankToken` in `src/pf2e.ts`
@@ -109,12 +115,27 @@ is the single boundary.
   flank from there", not "can I get there this turn".
 - The overlay answers the rules question, not the automation one: with the system's flanking
   automation disabled it still shows flanks the system will not turn into off-guard.
+- No keybinding. Core Foundry binds bare Alt to highlight-objects, so the obvious Alt+F would
+  flash that overlay every time; the proposal for adding a non-Alt chord back is at the end of
+  [docs/2026-08-23-review.md](docs/2026-08-23-review.md).
 
-## Review
+## Known gaps in the tests
 
-[docs/2026-08-23-review.md](docs/2026-08-23-review.md) records the two-agent review of the first
-implementation: what was wrong (reach measurement, elevation, hidden tokens, non-square grids),
-what was fixed, and what is deliberately left alone.
+Worth knowing before trusting a green run:
+
+- `wallsBlock` is never exercised, and the flanking tests stub no `CONFIG`, so the first test to
+  enable it would throw in `wallBetween`.
+- Nothing asserts that a placement square is rejected for falling outside the scene rectangle.
+- Everything under "Verifying in Foundry" below is unreachable from a unit test.
+
+## History
+
+- [CHANGELOG.md](CHANGELOG.md) - what shipped in each version.
+- [docs/foundry-v14-canvas-notes.md](docs/foundry-v14-canvas-notes.md) - v14 canvas behaviour this
+  module depends on, and the traps in it.
+- [docs/2026-08-23-review.md](docs/2026-08-23-review.md) - the two-agent review of the first
+  implementation: what was wrong (reach measurement, elevation, hidden tokens, non-square grids),
+  what was fixed, and what is deliberately left alone.
 
 ## Verifying in Foundry
 
@@ -141,6 +162,3 @@ Flanking rules and the actor data behind them come from the
 ## License
 
 MIT.
-
-
-
