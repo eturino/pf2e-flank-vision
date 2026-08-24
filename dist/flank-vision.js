@@ -354,7 +354,7 @@ function flankingPlacements(token, tokens, opts, limits) {
 
 // src/main.ts
 var ID = "pf2e-flank-vision";
-var BUILD = 1;
+var BUILD = 2;
 console.log(`${ID} | build ${BUILD}`);
 var TOGGLES = {
   enabled: true,
@@ -443,11 +443,13 @@ function render() {
   const tokens = all.filter((token) => token !== source);
   if (preview) tokens.push(preview);
   const focus = preview ?? focusToken();
+  const move = focus?.document.movement;
   debug("render", {
     preview: preview?.name ?? null,
     focus: focus?.name ?? null,
     at: focus ? JSON.stringify(squaresAt(focus)) : null,
-    doc: focus ? `${focus.document.x},${focus.document.y}` : null
+    doc: focus ? `${focus.document.x},${focus.document.y}` : null,
+    move: move ? `${move.state} -> ${move.destination?.x},${move.destination?.y}` : String(move)
   });
   const marked = toggled("flankedMarkers") ? flankedTokens(tokens, opts) : null;
   if (marked) {

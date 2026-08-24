@@ -19,7 +19,7 @@ const ID = "pf2e-flank-vision";
 
 // bump on every change while the drop bug is being chased, so a reload proves what is loaded.
 // delete this and the debug tracing once it is settled.
-const BUILD = 1;
+const BUILD = 2;
 console.log(`${ID} | build ${BUILD}`);
 
 type Toggle = "enabled" | "flankedMarkers" | "selectedStatus" | "dragPreview" | "placementDots" | "wallsBlock";
@@ -137,11 +137,13 @@ function render(): void {
   if (preview) tokens.push(preview);
 
   const focus = preview ?? focusToken();
+  const move = focus?.document.movement;
   debug("render", {
     preview: preview?.name ?? null,
     focus: focus?.name ?? null,
     at: focus ? JSON.stringify(squaresAt(focus)) : null,
     doc: focus ? `${focus.document.x},${focus.document.y}` : null,
+    move: move ? `${move.state} -> ${move.destination?.x},${move.destination?.y}` : String(move),
   });
 
   const marked = toggled("flankedMarkers") ? flankedTokens(tokens, opts) : null;
