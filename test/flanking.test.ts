@@ -29,6 +29,8 @@ interface Spec {
   hidden?: boolean;
   /** Mid-move: document x/y still hold the animated position, the destination is elsewhere. */
   movingTo?: { x: number; y: number };
+  /** A drag clone, whose own x/y win over a movement describing the last real move. */
+  preview?: boolean;
 }
 
 interface StubActor {
@@ -59,6 +61,7 @@ function token(name: string, spec: Spec): FlankToken {
   const stub: unknown = {
     name,
     id: name,
+    isPreview: spec.preview ?? false,
     actor,
     document: {
       x: spec.x * GRID,
@@ -69,7 +72,7 @@ function token(name: string, spec: Spec): FlankToken {
       elevation: spec.elevation ?? 0,
       movement: spec.movingTo
         ? {
-            state: "pending",
+            state: "completed",
             destination: {
               x: spec.movingTo.x * GRID,
               y: spec.movingTo.y * GRID,
@@ -178,6 +181,15 @@ describe("flanking rules", () => {
     // same document position, but it is on its way four squares south
     const leaving = token("ogre", { side: "foe", x: 1, y: 1, movingTo: { x: 1, y: 5 } });
     expect(buddiesFlanking(hero, leaving, [hero, ally, leaving], OPTS)).toEqual([]);
+  });
+
+  it("trusts a drag clone's own position over its stale movement", () => {
+    const hero = token("hero", { side: "party", x: 0, y: 1 });
+    const ally = token("ally", { side: "party", x: 2, y: 1 });
+    // the clone sits between them; its movement still points at wherever the real token last went
+    const clone = token("ogre", { side: "foe", x: 1, y: 1, movingTo: { x: 1, y: 5 }, preview: true });
+
+    expect(buddiesFlanking(hero, clone, [hero, ally, clone], OPTS)).toEqual([ally]);
   });
 
   it("leaves unflankable enemies alone", () => {

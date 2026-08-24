@@ -180,7 +180,7 @@ function gridDistance() {
 }
 function settledPosition(token) {
   const doc = token.document;
-  const to = doc.movement?.state === "pending" ? doc.movement.destination : null;
+  const to = token.isPreview ? null : doc.movement?.destination;
   return {
     x: to?.x ?? doc.x,
     y: to?.y ?? doc.y,
@@ -354,7 +354,7 @@ function flankingPlacements(token, tokens, opts, limits) {
 
 // src/main.ts
 var ID = "pf2e-flank-vision";
-var BUILD = 2;
+var BUILD = 3;
 console.log(`${ID} | build ${BUILD}`);
 var TOGGLES = {
   enabled: true,

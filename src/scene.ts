@@ -28,16 +28,20 @@ interface Position {
 }
 
 /**
- * Where the token ends up, not where it is this frame. Foundry animates `document.x/y` along the
- * path, so a draw scheduled by a drop reads a point partway there and lands on the square the
- * token came from. The movement carries its own destination, settled from the first frame.
+ * Where the token ends up, not where it is this frame.
  *
- * `movement` is optional here on purpose: drag clones are constructed by Foundry and the types
- * say nothing about what a clone carries.
+ * A placed token animates: Foundry interpolates `document.x/y` along the path, so a draw
+ * scheduled by a drop reads a point partway there and floors to the square it came from. Its
+ * `movement.destination` is the settled square, correct from the first frame - and the movement
+ * reports `completed` throughout, so the state is no help in telling the two apart.
+ *
+ * A drag clone is the mirror image: its `x`/`y` follow the cursor and are what we want, while its
+ * `movement` still describes whatever the real token did last. So the clone decides it, not the
+ * movement. `movement` is optional here because the types say nothing about what a clone carries.
  */
 function settledPosition(token: FlankToken): Position {
   const doc = token.document;
-  const to = doc.movement?.state === "pending" ? doc.movement.destination : null;
+  const to = token.isPreview ? null : doc.movement?.destination;
   return {
     x: to?.x ?? doc.x,
     y: to?.y ?? doc.y,
