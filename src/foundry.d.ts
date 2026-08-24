@@ -30,7 +30,7 @@ declare global {
         };
       };
     };
-    pf2eFlankVision: { colors: FlankColors };
+    pf2eFlankVision: { colors: FlankColors; debug: boolean };
   };
 }
 

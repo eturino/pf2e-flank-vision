@@ -6,7 +6,7 @@ var DEFAULT_COLORS = {
   placement: 4448223
 };
 function registerColors() {
-  CONFIG.pf2eFlankVision = { colors: { ...DEFAULT_COLORS } };
+  CONFIG.pf2eFlankVision = { colors: { ...DEFAULT_COLORS }, debug: false };
 }
 function colors() {
   return CONFIG.pf2eFlankVision.colors;
@@ -362,7 +362,7 @@ function registerSettings() {
       config: true,
       type: Boolean,
       default: initial,
-      onChange: () => requestRender()
+      onChange: () => requestRender("setting")
     });
   }
   for (const [key, initial] of Object.entries(AMOUNTS)) {
@@ -373,13 +373,17 @@ function registerSettings() {
       config: true,
       type: Number,
       default: initial,
-      onChange: () => requestRender()
+      onChange: () => requestRender("setting")
     });
   }
 }
+function debug(step, detail) {
+  if (CONFIG.pf2eFlankVision.debug) console.log(`${ID} | ${step}`, detail);
+}
 var pending = false;
 var rerun = false;
-function requestRender() {
+function requestRender(source) {
+  debug("request", { source, pending, rerun });
   if (pending) {
     rerun = true;
     return;
@@ -394,7 +398,7 @@ function requestRender() {
     }
     if (rerun) {
       rerun = false;
-      requestRender();
+      requestRender("rerun");
     }
   });
 }
@@ -416,6 +420,11 @@ function render() {
   const tokens = all.filter((token) => token !== source);
   if (preview) tokens.push(preview);
   const focus = preview ?? focusToken();
+  debug("render", {
+    preview: preview?.name ?? null,
+    focus: focus?.name ?? null,
+    at: focus ? squaresAt(focus) : null
+  });
   const marked = toggled("flankedMarkers") ? flankedTokens(tokens, opts) : null;
   if (marked) {
     for (const [token] of marked) outline(boundsAt(token), colors().otherFlanked, 0.45);
@@ -458,12 +467,13 @@ Hooks.once("init", () => {
 });
 Hooks.on("canvasReady", () => {
   warnedAboutGrid = false;
-  requestRender();
+  requestRender("canvasReady");
 });
 var hadPreview = false;
 Hooks.on("refreshToken", () => {
   const live = !!canvas.tokens.preview?.children.length;
-  if (live || hadPreview) requestRender();
+  debug("refreshToken", { live, hadPreview });
+  if (live || hadPreview) requestRender("refreshToken");
   hadPreview = live;
 });
 for (const hook of [
@@ -482,6 +492,6 @@ for (const hook of [
   "updateWall",
   "deleteWall"
 ]) {
-  Hooks.on(hook, () => requestRender());
+  Hooks.on(hook, () => requestRender(hook));
 }
 Hooks.on("canvasTearDown", () => destroyOverlay());

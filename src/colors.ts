@@ -18,10 +18,11 @@ export const DEFAULT_COLORS: FlankColors = {
 
 /**
  * Colors live on CONFIG so a world can restyle the overlay from a macro or another module:
- * `CONFIG.pf2eFlankVision.colors.flanking = 0xff00ff`.
+ * `CONFIG.pf2eFlankVision.colors.flanking = 0xff00ff`. `debug` traces every render decision to
+ * the console - this module draws on canvas timing that no unit test can reach.
  */
 export function registerColors(): void {
-  CONFIG.pf2eFlankVision = { colors: { ...DEFAULT_COLORS } };
+  CONFIG.pf2eFlankVision = { colors: { ...DEFAULT_COLORS }, debug: false };
 }
 
 export function colors(): FlankColors {

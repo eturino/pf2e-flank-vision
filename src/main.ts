@@ -11,6 +11,7 @@ import {
   gridSize,
   isSupportedGrid,
   previewTokens,
+  squaresAt,
   visibleTokens,
 } from "./scene.ts";
 
@@ -53,7 +54,7 @@ function registerSettings(): void {
       config: true,
       type: Boolean,
       default: initial,
-      onChange: () => requestRender(),
+      onChange: () => requestRender("setting"),
     });
   }
   for (const [key, initial] of Object.entries(AMOUNTS)) {
@@ -64,10 +65,14 @@ function registerSettings(): void {
       config: true,
       type: Number,
       default: initial,
-      onChange: () => requestRender(),
+      onChange: () => requestRender("setting"),
     });
   }
 
+}
+
+function debug(step: string, detail: Record<string, unknown>): void {
+  if (CONFIG.pf2eFlankVision.debug) console.log(`${ID} | ${step}`, detail);
 }
 
 let pending = false;
@@ -82,7 +87,8 @@ let rerun = false;
  * ponytail: the draw itself is O(tokens^2) with no caching - cache per-token squares if a
  * scene ever gets crowded enough to drop frames while dragging.
  */
-function requestRender(): void {
+function requestRender(source: string): void {
+  debug("request", { source, pending, rerun });
   if (pending) {
     rerun = true;
     return;
@@ -97,7 +103,7 @@ function requestRender(): void {
     }
     if (rerun) {
       rerun = false;
-      requestRender();
+      requestRender("rerun");
     }
   });
 }
@@ -126,6 +132,11 @@ function render(): void {
   if (preview) tokens.push(preview);
 
   const focus = preview ?? focusToken();
+  debug("render", {
+    preview: preview?.name ?? null,
+    focus: focus?.name ?? null,
+    at: focus ? squaresAt(focus) : null,
+  });
 
   const marked = toggled("flankedMarkers") ? flankedTokens(tokens, opts) : null;
   if (marked) {
@@ -177,7 +188,7 @@ Hooks.once("init", () => {
 
 Hooks.on("canvasReady", () => {
   warnedAboutGrid = false;
-  requestRender();
+  requestRender("canvasReady");
 });
 
 let hadPreview = false;
@@ -192,7 +203,8 @@ let hadPreview = false;
  */
 Hooks.on("refreshToken", () => {
   const live = !!canvas.tokens.preview?.children.length;
-  if (live || hadPreview) requestRender();
+  debug("refreshToken", { live, hadPreview });
+  if (live || hadPreview) requestRender("refreshToken");
   hadPreview = live;
 });
 
@@ -213,7 +225,7 @@ for (const hook of [
   "updateWall",
   "deleteWall",
 ]) {
-  Hooks.on(hook, () => requestRender());
+  Hooks.on(hook, () => requestRender(hook));
 }
 
 Hooks.on("canvasTearDown", () => destroyOverlay());
