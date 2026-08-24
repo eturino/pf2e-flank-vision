@@ -44,10 +44,6 @@ interface StubActor {
  */
 function token(name: string, spec: Spec): FlankToken {
   const size = spec.size ?? 1;
-  const offsets: { i: number; j: number }[] = [];
-  for (let i = 0; i < size; i++) {
-    for (let j = 0; j < size; j++) offsets.push({ i: spec.y + i, j: spec.x + j });
-  }
   const actor: StubActor = {
     side: spec.side,
     attributes: {
@@ -69,7 +65,6 @@ function token(name: string, spec: Spec): FlankToken {
       height: size,
       hidden: spec.hidden ?? false,
       elevation: spec.elevation ?? 0,
-      getOccupiedGridSpaceOffsets: () => offsets,
     },
   };
   if (!isFlankToken(stub)) throw new Error(`stub token ${name} does not satisfy isFlankToken`);

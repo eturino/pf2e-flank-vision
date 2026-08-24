@@ -179,7 +179,16 @@ function gridDistance() {
   return canvas.dimensions.distance;
 }
 function occupiedSquares(token) {
-  return token.document.getOccupiedGridSpaceOffsets().map((offset) => ({ x: offset.j, y: offset.i }));
+  const size = gridSize();
+  const originX = Math.floor(token.document.x / size);
+  const originY = Math.floor(token.document.y / size);
+  const squares = [];
+  for (let x = 0; x < Math.max(1, Math.round(token.document.width)); x++) {
+    for (let y = 0; y < Math.max(1, Math.round(token.document.height)); y++) {
+      squares.push({ x: originX + x, y: originY + y });
+    }
+  }
+  return squares;
 }
 function squaresAt(token, at) {
   const squares = occupiedSquares(token);
@@ -423,7 +432,8 @@ function render() {
   debug("render", {
     preview: preview?.name ?? null,
     focus: focus?.name ?? null,
-    at: focus ? squaresAt(focus) : null
+    at: focus ? JSON.stringify(squaresAt(focus)) : null,
+    doc: focus ? `${focus.document.x},${focus.document.y}` : null
   });
   const marked = toggled("flankedMarkers") ? flankedTokens(tokens, opts) : null;
   if (marked) {

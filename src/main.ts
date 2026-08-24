@@ -135,7 +135,8 @@ function render(): void {
   debug("render", {
     preview: preview?.name ?? null,
     focus: focus?.name ?? null,
-    at: focus ? squaresAt(focus) : null,
+    at: focus ? JSON.stringify(squaresAt(focus)) : null,
+    doc: focus ? `${focus.document.x},${focus.document.y}` : null,
   });
 
   const marked = toggled("flankedMarkers") ? flankedTokens(tokens, opts) : null;

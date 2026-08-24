@@ -33,12 +33,3 @@ declare global {
     pf2eFlankVision: { colors: FlankColors; debug: boolean };
   };
 }
-
-// v14 API the hand-maintained types have not caught up with yet:
-// https://foundryvtt.com/api/classes/foundry.documents.TokenDocument.html
-declare module "@client/documents/token.mjs" {
-  export default interface TokenDocument {
-    /** Grid offsets of the spaces this token occupies. Empty on gridless scenes. */
-    getOccupiedGridSpaceOffsets(): { i: number; j: number; k?: number }[];
-  }
-}

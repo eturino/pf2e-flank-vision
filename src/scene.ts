@@ -19,8 +19,22 @@ export function gridDistance(): number {
   return canvas.dimensions.distance;
 }
 
+/**
+ * Derived from the document's own position rather than `getOccupiedGridSpaceOffsets()`, which
+ * lags behind it for the length of a move animation - long enough that every draw a drop
+ * schedules lands on the square the token came from.
+ */
 export function occupiedSquares(token: FlankToken): Square[] {
-  return token.document.getOccupiedGridSpaceOffsets().map((offset) => ({ x: offset.j, y: offset.i }));
+  const size = gridSize();
+  const originX = Math.floor(token.document.x / size);
+  const originY = Math.floor(token.document.y / size);
+  const squares: Square[] = [];
+  for (let x = 0; x < Math.max(1, Math.round(token.document.width)); x++) {
+    for (let y = 0; y < Math.max(1, Math.round(token.document.height)); y++) {
+      squares.push({ x: originX + x, y: originY + y });
+    }
+  }
+  return squares;
 }
 
 export function squaresAt(token: FlankToken, at?: Square): Square[] {
