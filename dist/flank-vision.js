@@ -178,13 +178,25 @@ function gridSize() {
 function gridDistance() {
   return canvas.dimensions.distance;
 }
+function settledPosition(token) {
+  const doc = token.document;
+  const to = doc.movement?.state === "pending" ? doc.movement.destination : null;
+  return {
+    x: to?.x ?? doc.x,
+    y: to?.y ?? doc.y,
+    elevation: to?.elevation ?? doc.elevation,
+    width: to?.width ?? doc.width,
+    height: to?.height ?? doc.height
+  };
+}
 function occupiedSquares(token) {
   const size = gridSize();
-  const originX = Math.floor(token.document.x / size);
-  const originY = Math.floor(token.document.y / size);
+  const at = settledPosition(token);
+  const originX = Math.floor(at.x / size);
+  const originY = Math.floor(at.y / size);
   const squares = [];
-  for (let x = 0; x < Math.max(1, Math.round(token.document.width)); x++) {
-    for (let y = 0; y < Math.max(1, Math.round(token.document.height)); y++) {
+  for (let x = 0; x < Math.max(1, Math.round(at.width)); x++) {
+    for (let y = 0; y < Math.max(1, Math.round(at.height)); y++) {
       squares.push({ x: originX + x, y: originY + y });
     }
   }
@@ -206,7 +218,7 @@ function reachInFeet(token) {
 function footprintAt(token, at) {
   return {
     squares: squaresAt(token, at),
-    elevation: token.document.elevation,
+    elevation: settledPosition(token).elevation,
     height: token.actor.dimensions?.height ?? gridDistance()
   };
 }

@@ -27,6 +27,8 @@ interface Spec {
   flankable?: boolean;
   elevation?: number;
   hidden?: boolean;
+  /** Mid-move: document x/y still hold the animated position, the destination is elsewhere. */
+  movingTo?: { x: number; y: number };
 }
 
 interface StubActor {
@@ -65,6 +67,18 @@ function token(name: string, spec: Spec): FlankToken {
       height: size,
       hidden: spec.hidden ?? false,
       elevation: spec.elevation ?? 0,
+      movement: spec.movingTo
+        ? {
+            state: "pending",
+            destination: {
+              x: spec.movingTo.x * GRID,
+              y: spec.movingTo.y * GRID,
+              elevation: spec.elevation ?? 0,
+              width: size,
+              height: size,
+            },
+          }
+        : undefined,
     },
   };
   if (!isFlankToken(stub)) throw new Error(`stub token ${name} does not satisfy isFlankToken`);
@@ -153,6 +167,17 @@ describe("flanking rules", () => {
 
     expect(buddiesFlanking(hero, ogre, tokens, OPTS)).toEqual([]);
     expect(buddiesFlanking(rogue, ogre, tokens, OPTS)).toEqual([hero]);
+  });
+
+  it("measures a moving token from where it lands, not mid-animation", () => {
+    const hero = token("hero", { side: "party", x: 0, y: 1 });
+    const ally = token("ally", { side: "party", x: 2, y: 1 });
+    const ogre = token("ogre", { side: "foe", x: 1, y: 1 });
+    expect(buddiesFlanking(hero, ogre, [hero, ally, ogre], OPTS)).toEqual([ally]);
+
+    // same document position, but it is on its way four squares south
+    const leaving = token("ogre", { side: "foe", x: 1, y: 1, movingTo: { x: 1, y: 5 } });
+    expect(buddiesFlanking(hero, leaving, [hero, ally, leaving], OPTS)).toEqual([]);
   });
 
   it("leaves unflankable enemies alone", () => {

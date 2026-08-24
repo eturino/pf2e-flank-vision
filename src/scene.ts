@@ -19,18 +19,42 @@ export function gridDistance(): number {
   return canvas.dimensions.distance;
 }
 
+interface Position {
+  x: number;
+  y: number;
+  elevation: number;
+  width: number;
+  height: number;
+}
+
 /**
- * Derived from the document's own position rather than `getOccupiedGridSpaceOffsets()`, which
- * lags behind it for the length of a move animation - long enough that every draw a drop
- * schedules lands on the square the token came from.
+ * Where the token ends up, not where it is this frame. Foundry animates `document.x/y` along the
+ * path, so a draw scheduled by a drop reads a point partway there and lands on the square the
+ * token came from. The movement carries its own destination, settled from the first frame.
+ *
+ * `movement` is optional here on purpose: drag clones are constructed by Foundry and the types
+ * say nothing about what a clone carries.
  */
+function settledPosition(token: FlankToken): Position {
+  const doc = token.document;
+  const to = doc.movement?.state === "pending" ? doc.movement.destination : null;
+  return {
+    x: to?.x ?? doc.x,
+    y: to?.y ?? doc.y,
+    elevation: to?.elevation ?? doc.elevation,
+    width: to?.width ?? doc.width,
+    height: to?.height ?? doc.height,
+  };
+}
+
 export function occupiedSquares(token: FlankToken): Square[] {
   const size = gridSize();
-  const originX = Math.floor(token.document.x / size);
-  const originY = Math.floor(token.document.y / size);
+  const at = settledPosition(token);
+  const originX = Math.floor(at.x / size);
+  const originY = Math.floor(at.y / size);
   const squares: Square[] = [];
-  for (let x = 0; x < Math.max(1, Math.round(token.document.width)); x++) {
-    for (let y = 0; y < Math.max(1, Math.round(token.document.height)); y++) {
+  for (let x = 0; x < Math.max(1, Math.round(at.width)); x++) {
+    for (let y = 0; y < Math.max(1, Math.round(at.height)); y++) {
       squares.push({ x: originX + x, y: originY + y });
     }
   }
@@ -58,7 +82,7 @@ export function reachInFeet(token: FlankToken): number {
 export function footprintAt(token: FlankToken, at?: Square): Footprint {
   return {
     squares: squaresAt(token, at),
-    elevation: token.document.elevation,
+    elevation: settledPosition(token).elevation,
     height: token.actor.dimensions?.height ?? gridDistance(),
   };
 }
