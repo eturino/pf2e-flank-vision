@@ -90,6 +90,10 @@ against stub tokens that are pushed through the same runtime guard real tokens g
 that draws, and `src/colors.ts` puts the palette on `CONFIG.pf2eFlankVision.colors` so a world
 can restyle the overlay from a macro.
 
+`CONFIG.pf2eFlankVision.debug = true` traces every render request, frame and draw to the console
+with the position each one measured from. The overlay depends on canvas timing no unit test can
+reach, so this is how the last bug in it was found.
+
 Types come from `@dfreds/foundry-types` (the PF2e system's own definitions, versioned to Foundry
 builds). There is no `any` and no type assertion in the codebase; `isFlankToken` in `src/pf2e.ts`
 is the single boundary.

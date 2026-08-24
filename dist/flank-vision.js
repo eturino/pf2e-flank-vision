@@ -354,8 +354,6 @@ function flankingPlacements(token, tokens, opts, limits) {
 
 // src/main.ts
 var ID = "pf2e-flank-vision";
-var BUILD = 3;
-console.log(`${ID} | build ${BUILD}`);
 var TOGGLES = {
   enabled: true,
   flankedMarkers: true,

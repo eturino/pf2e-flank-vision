@@ -17,11 +17,6 @@ import {
 
 const ID = "pf2e-flank-vision";
 
-// bump on every change while the drop bug is being chased, so a reload proves what is loaded.
-// delete this and the debug tracing once it is settled.
-const BUILD = 3;
-console.log(`${ID} | build ${BUILD}`);
-
 type Toggle = "enabled" | "flankedMarkers" | "selectedStatus" | "dragPreview" | "placementDots" | "wallsBlock";
 type Amount = "searchRadius" | "maxSquares";
 
