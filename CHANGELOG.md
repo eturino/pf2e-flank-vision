@@ -5,6 +5,12 @@
 First tagged release. Everything below came out of a review of the initial implementation and a
 live pass in Foundry.
 
+Shipping at `0.x` deliberately: the rules are unit-tested against stub tokens and the distance
+maths is ported from the system's own measurement, but only part of the path from a real PF2e
+actor to the overlay has been walked in play. The README table under "Verifying in Foundry" says
+which rows are confirmed and which are not. The reach, elevation, visibility and grid changes in
+this release are among the unconfirmed ones.
+
 ### Rules
 
 - **Reach is measured PF2e's way.** Diagonals alternate 5/10, so two diagonal steps are 15 feet,

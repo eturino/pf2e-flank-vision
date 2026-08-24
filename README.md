@@ -139,14 +139,28 @@ Worth knowing before trusting a green run:
 
 ## Verifying in Foundry
 
-Nothing below is covered by the unit tests, so check once after installing:
+None of this is covered by the unit tests, and **most of it has not been confirmed in play yet**.
+That is what the `0.x` means: the rules are unit-tested against stub tokens and the maths is
+ported from the system's own measurement, but the path from a real PF2e actor to the overlay has
+only been walked for some of it.
 
-1. Two allies either side of an enemy - enemy outlined, line between the pair.
-2. Drag one of them away - the outline should drop *while dragging*, before you release.
-3. Stand between two enemies - your token outlined red.
-4. Turn on flanking positions with an ally next to an enemy - dots opposite the ally.
-5. Give someone a reach weapon or Lunge - the reachable ring grows.
-6. Move a flanked token away - the outline leaves its old square with it.
+| Check | Confirmed in play |
+| --- | --- |
+| Two allies either side of an enemy - enemy outlined, line between the pair | yes |
+| Drag one of them away - the outline drops *while dragging*, before you release | yes |
+| Move a flanked token away - the outline leaves its old square with it | yes, 0.2.0 |
+| Stand between two enemies - your token outlined red | no |
+| Flanking positions with an ally next to an enemy - dots opposite the ally | no |
+| A reach weapon or Lunge - the reachable ring grows | no |
+| A creature two diagonal squares away with 10-foot reach - still in range | no |
+| A flyer overhead - not flanked by two melee on the ground | no |
+| A GM-hidden token - flanks for nobody, and players never see it outlined | no |
+| A hex or gridless scene - one warning, no overlay, other scenes unaffected | no |
+
+The unconfirmed rows are the ones that changed most in 0.2.0 (reach measurement, elevation,
+visibility, the grid bail). If one of them is wrong, it is wrong in the direction of showing a
+flank the system would not grant, or hiding one it would - not in the direction of breaking the
+canvas. Report anything that looks off and include `CONFIG.pf2eFlankVision.debug = true` output.
 
 ## Credits
 
