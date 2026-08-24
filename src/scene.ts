@@ -16,24 +16,11 @@ export function gridSize(): number {
 
 /** Feet (or whatever unit) covered by one grid square. */
 export function gridDistance(): number {
-  return canvas.dimensions?.distance || 5;
+  return canvas.dimensions.distance;
 }
 
 export function occupiedSquares(token: FlankToken): Square[] {
-  const offsets = token.document.getOccupiedGridSpaceOffsets();
-  if (offsets.length > 0) return offsets.map((offset) => ({ x: offset.j, y: offset.i }));
-
-  // gridless scenes and anything else without offsets: fall back to the token's own footprint
-  const size = gridSize();
-  const originX = Math.floor(token.document.x / size);
-  const originY = Math.floor(token.document.y / size);
-  const squares: Square[] = [];
-  for (let x = 0; x < Math.max(1, Math.round(token.document.width)); x++) {
-    for (let y = 0; y < Math.max(1, Math.round(token.document.height)); y++) {
-      squares.push({ x: originX + x, y: originY + y });
-    }
-  }
-  return squares;
+  return token.document.getOccupiedGridSpaceOffsets().map((offset) => ({ x: offset.j, y: offset.i }));
 }
 
 export function squaresAt(token: FlankToken, at?: Square): Square[] {
@@ -50,7 +37,7 @@ export function boundsAt(token: FlankToken, at?: Square): Bounds {
 }
 
 export function reachInFeet(token: FlankToken): number {
-  return token.actor?.getReach({ action: "attack" }) ?? gridDistance();
+  return token.actor.getReach({ action: "attack" });
 }
 
 /** Squares plus vertical span: PF2e measures elevation as part of the same distance. */
@@ -58,13 +45,8 @@ export function footprintAt(token: FlankToken, at?: Square): Footprint {
   return {
     squares: squaresAt(token, at),
     elevation: token.document.elevation,
-    height: token.actor?.dimensions?.height ?? gridDistance(),
+    height: token.actor.dimensions?.height ?? gridDistance(),
   };
-}
-
-export function squareOf(token: FlankToken): Square {
-  const size = gridSize();
-  return { x: Math.round(token.document.x / size), y: Math.round(token.document.y / size) };
 }
 
 /**
@@ -99,9 +81,7 @@ export function canOccupy(token: FlankToken, at: Square, others: FlankToken[]): 
 
 /** Wall between two points, using the same collision backend as token movement. */
 export function wallBetween(a: Point, b: Point): boolean {
-  const backend = CONFIG.Canvas.polygonBackends?.move;
-  if (!backend) return false;
-  return backend.testCollision(a, b, { type: "move", mode: "any" });
+  return CONFIG.Canvas.polygonBackends.move.testCollision(a, b, { type: "move", mode: "any" });
 }
 
 /** The token whose situation we report on: the controlled one, else the assigned character. */
@@ -111,7 +91,7 @@ export function focusToken(): FlankToken | null {
   if (first) return first;
   const character = game.user.character;
   if (!character) return null;
-  return visibleTokens().find((token) => token.actor?.id === character.id) ?? null;
+  return visibleTokens().find((token) => token.actor.id === character.id) ?? null;
 }
 
 /** Drag clones live on the preview layer while a token is being moved. */

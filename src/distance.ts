@@ -27,10 +27,14 @@ function axisSteps(a: Span, b: Span): number {
   return Math.max(a.min - b.max - 1, b.min - a.max - 1, 0) + 1;
 }
 
+/**
+ * Elevation spans are feet, not square indices, so two spans that merely touch (a creature on
+ * the ground and one hovering exactly one square above it) are a step apart, not overlapping.
+ */
 function elevationSteps(a: Footprint, b: Footprint, gridDistance: number): number {
   const spanA: Span = { min: a.elevation, max: a.elevation + a.height };
   const spanB: Span = { min: b.elevation, max: b.elevation + b.height };
-  if (spansOverlap(spanA, spanB)) return 0;
+  if (spanA.min < spanB.max && spanB.min < spanA.max) return 0;
   const gap = Math.max(spanA.min - spanB.max, spanB.min - spanA.max, 0);
   return Math.ceil(gap / gridDistance) + 1;
 }
@@ -50,10 +54,11 @@ export function measureDistanceFeet(
   const [bx, by] = [extent(b.squares, "x"), extent(b.squares, "y")];
 
   const sharesFootprint = spansOverlap(ax, bx) && spansOverlap(ay, by);
+  const elevation = elevationSteps(a, b, gridDistance);
   const steps = [
     sharesFootprint ? 0 : axisSteps(ax, bx),
     sharesFootprint ? 0 : axisSteps(ay, by),
-    elevationSteps(a, b, gridDistance),
+    elevation,
   ].sort((left, right) => left - right);
 
   const doubleDiagonal = steps[0] ?? 0;
@@ -61,7 +66,9 @@ export function measureDistanceFeet(
   const straight = (steps[2] ?? 0) - (steps[1] ?? 0);
 
   // "Unlike with measuring most distances, 10-foot reach can reach 2 squares diagonally." (CRB 455)
-  const reduction = doubleDiagonal + diagonal > 1 && reach === 10 ? 1 : 0;
+  // The carve-out is written about squares on the map, so it does not apply once the reach has
+  // to climb as well.
+  const reduction = elevation === 0 && diagonal > 1 && reach === 10 ? 1 : 0;
   const squares = Math.floor(doubleDiagonal * 1.75 + diagonal * 1.5 + straight) - reduction;
   return squares * gridDistance;
 }

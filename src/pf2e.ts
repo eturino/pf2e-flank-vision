@@ -17,9 +17,9 @@ export interface FlankActor extends Actor<TokenDocument<Scene> | null> {
   getReach(options: { action: "attack" | "interact" }): number;
 }
 
-/** A placed token whose actor carries PF2e's flanking data. */
+/** A placed token whose actor carries PF2e's flanking data. `isFlankToken` guarantees the actor. */
 export interface FlankToken extends Token<TokenDocument<Scene>> {
-  actor: FlankActor | null;
+  actor: FlankActor;
 }
 
 /**

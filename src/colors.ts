@@ -25,5 +25,5 @@ export function registerColors(): void {
 }
 
 export function colors(): FlankColors {
-  return CONFIG.pf2eFlankVision?.colors ?? DEFAULT_COLORS;
+  return CONFIG.pf2eFlankVision.colors;
 }

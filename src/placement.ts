@@ -27,7 +27,7 @@ export function flankingPlacements(
     (enemy) =>
       !isAlly(token, enemy) &&
       enemy !== token &&
-      enemy.actor?.attributes?.flanking?.flankable &&
+      enemy.actor.attributes.flanking.flankable &&
       squareGap(own, squaresAt(enemy)) <= limits.searchRadius &&
       // no ally threatening it means no square of ours can flank it
       tokens.some((ally) => isAlly(token, ally) && canFlank(ally, enemy)),
@@ -35,13 +35,13 @@ export function flankingPlacements(
 
   for (const enemy of enemies) {
     for (const square of surroundingSquares(squaresAt(enemy), reach + span)) {
+      if (found.size >= limits.maxSquares) return [...found.values()];
       const key = `${square.x},${square.y}`;
       if (found.has(key)) continue;
       if (!canFlank(token, enemy, square)) continue;
       if (!canOccupy(token, square, tokens)) continue;
       if (buddiesFlanking(token, enemy, tokens, opts, square).length === 0) continue;
       found.set(key, square);
-      if (found.size >= limits.maxSquares) return [...found.values()];
     }
   }
   return [...found.values()];

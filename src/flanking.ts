@@ -17,20 +17,18 @@ export function canFlank(attacker: FlankToken, flankee: FlankToken, attackerAt?:
   if (attacker === flankee) return false;
   const actor = attacker.actor;
   const target = flankee.actor;
-  if (!actor || !target) return false;
-  if (!actor.attributes?.flanking?.canFlank) return false;
-  if (!target.attributes?.flanking?.flankable) return false;
+  if (!actor.attributes.flanking.canFlank) return false;
+  if (!target.attributes.flanking.flankable) return false;
   if (!actor.canAttack) return false;
   if (attacker.document.hidden || flankee.document.hidden) return false;
-  if (actor.isAllyOf?.(target)) return false;
+  if (actor.isAllyOf(target)) return false;
   const reach = reachInFeet(attacker);
   return withinReach(footprintAt(attacker, attackerAt), footprintAt(flankee), reach, gridDistance());
 }
 
 export function isAlly(a: FlankToken, b: FlankToken): boolean {
-  if (!a.actor || !b.actor) return false;
   if (a === b) return false;
-  return !!a.actor.isAllyOf?.(b.actor) || a.actor === b.actor;
+  return a.actor.isAllyOf(b.actor) || a.actor === b.actor;
 }
 
 function opposite(attacker: FlankToken, buddy: FlankToken, flankee: FlankToken, at: Square | undefined, opts: Options): boolean {
@@ -40,14 +38,30 @@ function opposite(attacker: FlankToken, buddy: FlankToken, flankee: FlankToken, 
   return !(opts.wallsBlock && wallBetween(centerA, centerB));
 }
 
-/** Gang Up and friends: some feats flank on ally count alone. Companion-specific variants are not covered. */
+/**
+ * Gang Up and friends: some feats flank on ally count alone. The feat only ever benefits the
+ * creature that has it - "any enemy you're adjacent to is off-guard as long as it's within reach
+ * of at least one of your allies" - so an ally's Gang Up grants nothing here. Companion-specific
+ * variants are not covered either.
+ */
 function gangsUp(attacker: FlankToken, buddies: FlankToken[]): boolean {
-  const own = attacker.actor?.attributes.flanking.canGangUp ?? [];
-  if (own.some((g) => (typeof g === "number" && g <= buddies.length) || (g === true && buddies.length >= 1))) {
-    return true;
-  }
-  // an ally with Gang Up grants the flank to whoever it is ganging up with, not just itself
-  return buddies.some((buddy) => (buddy.actor?.attributes.flanking.canGangUp ?? []).some((g) => g === true));
+  return attacker.actor.attributes.flanking.canGangUp.some(
+    (g) => (typeof g === "number" && g <= buddies.length) || (g === true && buddies.length >= 1),
+  );
+}
+
+/** Allies threatening `flankee` that would pair with `attacker`, given who already threatens it. */
+function buddiesAmong(
+  attacker: FlankToken,
+  flankee: FlankToken,
+  threats: FlankToken[],
+  opts: Options,
+  at?: Square,
+): FlankToken[] {
+  const threatening = threats.filter((t) => t !== attacker && isAlly(attacker, t));
+  if (threatening.length === 0) return [];
+  if (gangsUp(attacker, threatening)) return threatening;
+  return threatening.filter((buddy) => opposite(attacker, buddy, flankee, at, opts));
 }
 
 /** Allies that let `attacker` flank `flankee` from `at`. Empty means no flank. */
@@ -59,12 +73,7 @@ export function buddiesFlanking(
   at?: Square,
 ): FlankToken[] {
   if (!canFlank(attacker, flankee, at)) return [];
-  const threatening = tokens.filter(
-    (t) => t !== attacker && isAlly(attacker, t) && canFlank(t, flankee),
-  );
-  if (threatening.length === 0) return [];
-  if (gangsUp(attacker, threatening)) return threatening;
-  return threatening.filter((buddy) => opposite(attacker, buddy, flankee, at, opts));
+  return buddiesAmong(attacker, flankee, threatsAgainst(flankee, tokens), opts, at);
 }
 
 /** Every enemy `attacker` would flank standing at `at`, with the allies making it work. */
@@ -82,12 +91,17 @@ export function flankedEnemies(
   return result;
 }
 
-/** Pairs of tokens flanking `flankee`, deduplicated. Reuses the same rules path as everything else. */
+/**
+ * Pairs of tokens flanking `flankee`, deduplicated. The threat set is resolved once for the
+ * flankee and shared across every attacker - recomputing it per attacker made this cubic in
+ * `canFlank`, which is the expensive call.
+ */
 export function flankedBy(flankee: FlankToken, tokens: FlankToken[], opts: Options): FlankPair[] {
+  const threats = threatsAgainst(flankee, tokens);
   const seen = new Set<string>();
   const pairs: FlankPair[] = [];
-  for (const attacker of tokens) {
-    for (const buddy of buddiesFlanking(attacker, flankee, tokens, opts)) {
+  for (const attacker of threats) {
+    for (const buddy of buddiesAmong(attacker, flankee, threats, opts)) {
       const key = [attacker.id, buddy.id].sort().join("|");
       if (seen.has(key)) continue;
       seen.add(key);
@@ -105,4 +119,8 @@ export function flankedTokens(tokens: FlankToken[], opts: Options): Map<FlankTok
     if (pairs.length > 0) result.set(token, pairs);
   }
   return result;
+}
+
+function threatsAgainst(flankee: FlankToken, tokens: FlankToken[]): FlankToken[] {
+  return tokens.filter((t) => canFlank(t, flankee));
 }

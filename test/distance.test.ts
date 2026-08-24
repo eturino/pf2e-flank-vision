@@ -52,6 +52,18 @@ describe("measureDistanceFeet", () => {
     // a flyer well overhead is not adjacent
     expect(feet(at(0, 0), at(1, 0, { elevation: 30 }))).toBe(30);
   });
+
+  it("separates vertical spans that only touch", () => {
+    // directly overhead, its feet at the target's head: one square up, not the same space
+    expect(feet(at(0, 0), at(0, 0, { elevation: 5 }))).toBe(5);
+    // a large creature is 10 feet tall, so the same flyer is inside its span
+    expect(feet(at(0, 0, { size: 2, height: 10 }), at(0, 0, { elevation: 5 }))).toBe(0);
+  });
+
+  it("keeps the 10-foot carve-out on the ground", () => {
+    // two diagonal squares away and one square up is not two squares diagonally
+    expect(feet(at(0, 0), at(2, 2, { elevation: 5 }), 10)).toBe(15);
+  });
 });
 
 describe("withinReach", () => {

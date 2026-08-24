@@ -1,6 +1,6 @@
 import { colors, registerColors } from "./colors.ts";
 import { clearOverlay, destroyOverlay, dot, line, outline } from "./draw.ts";
-import { flankedBy, flankedEnemies, flankedTokens, type Options } from "./flanking.ts";
+import { flankedBy, flankedEnemies, flankedTokens, type FlankPair, type Options } from "./flanking.ts";
 import { centerOf } from "./geometry.ts";
 import type { FlankToken } from "./pf2e.ts";
 import { flankingPlacements } from "./placement.ts";
@@ -115,10 +115,9 @@ function render(): void {
 
   const focus = preview ?? focusToken();
 
-  if (toggled("flankedMarkers")) {
-    for (const [token] of flankedTokens(tokens, opts)) {
-      outline(boundsAt(token), colors().otherFlanked, 0.45);
-    }
+  const marked = toggled("flankedMarkers") ? flankedTokens(tokens, opts) : null;
+  if (marked) {
+    for (const [token] of marked) outline(boundsAt(token), colors().otherFlanked, 0.45);
   }
 
   if (!focus) return;
@@ -128,11 +127,11 @@ function render(): void {
   }
 
   if (toggled("selectedStatus") || preview) {
-    drawFocusStatus(focus, tokens, opts);
+    drawFocusStatus(focus, tokens, opts, marked?.get(focus) ?? flankedBy(focus, tokens, opts));
   }
 }
 
-function drawFocusStatus(focus: FlankToken, tokens: FlankToken[], opts: Options): void {
+function drawFocusStatus(focus: FlankToken, tokens: FlankToken[], opts: Options, pairs: FlankPair[]): void {
   for (const [enemy, buddies] of flankedEnemies(focus, tokens, opts)) {
     outline(boundsAt(enemy), colors().flanking);
     for (const buddy of buddies) {
@@ -140,7 +139,6 @@ function drawFocusStatus(focus: FlankToken, tokens: FlankToken[], opts: Options)
     }
   }
 
-  const pairs = flankedBy(focus, tokens, opts);
   if (pairs.length === 0) return;
   outline(boundsAt(focus), colors().flanked);
   for (const pair of pairs) {
@@ -175,7 +173,7 @@ Hooks.on("canvasReady", () => {
  * drag preview exists - that is the one thing no other hook reports early enough.
  */
 Hooks.on("refreshToken", () => {
-  if (canvas.tokens?.preview?.children.length) requestRender();
+  if (canvas.tokens.preview?.children.length) requestRender();
 });
 
 // PF2e builds ActiveEffects ephemerally from items, so the item hooks cover effects too

@@ -3,7 +3,7 @@
     "settings": {
       "enabled": {
         "name": "Enable flank vision",
-        "hint": "Master switch for every overlay this module draws. Toggle with Alt+F."
+        "hint": "Master switch for every overlay this module draws."
       },
       "flankedMarkers": {
         "name": "Mark flanked tokens",

@@ -26,6 +26,7 @@ interface Spec {
   gangUp?: (number | true)[];
   flankable?: boolean;
   elevation?: number;
+  hidden?: boolean;
 }
 
 interface StubActor {
@@ -66,7 +67,7 @@ function token(name: string, spec: Spec): FlankToken {
       y: spec.y * GRID,
       width: size,
       height: size,
-      hidden: false,
+      hidden: spec.hidden ?? false,
       elevation: spec.elevation ?? 0,
       getOccupiedGridSpaceOffsets: () => offsets,
     },
@@ -125,6 +126,38 @@ describe("flanking rules", () => {
     const ogre = token("ogre", { side: "foe", x: 1, y: 1 });
 
     expect(buddiesFlanking(hero, ogre, [hero, ally, ogre], OPTS)).toEqual([ally]);
+  });
+
+  it("gives nothing to a hidden token, in either role", () => {
+    const hero = token("hero", { side: "party", x: 0, y: 1 });
+    const ally = token("ally", { side: "party", x: 2, y: 1, hidden: true });
+    const ogre = token("ogre", { side: "foe", x: 1, y: 1 });
+
+    expect(buddiesFlanking(hero, ogre, [hero, ally, ogre], OPTS)).toEqual([]);
+
+    const hiddenOgre = token("ogre", { side: "foe", x: 1, y: 1, hidden: true });
+    const visibleAlly = token("ally", { side: "party", x: 2, y: 1 });
+    expect(buddiesFlanking(hero, hiddenOgre, [hero, visibleAlly, hiddenOgre], OPTS)).toEqual([]);
+  });
+
+  it("does not flank a flyer out of reach overhead", () => {
+    const hero = token("hero", { side: "party", x: 0, y: 1 });
+    const ally = token("ally", { side: "party", x: 2, y: 1 });
+    const grounded = token("ogre", { side: "foe", x: 1, y: 1 });
+    expect(buddiesFlanking(hero, grounded, [hero, ally, grounded], OPTS)).toEqual([ally]);
+
+    const flyer = token("ogre", { side: "foe", x: 1, y: 1, elevation: 15 });
+    expect(buddiesFlanking(hero, flyer, [hero, ally, flyer], OPTS)).toEqual([]);
+  });
+
+  it("keeps an ally's Gang Up to that ally", () => {
+    const hero = token("hero", { side: "party", x: 0, y: 1 });
+    const rogue = token("rogue", { side: "party", x: 1, y: 0, gangUp: [true] });
+    const ogre = token("ogre", { side: "foe", x: 1, y: 1 });
+    const tokens = [hero, rogue, ogre];
+
+    expect(buddiesFlanking(hero, ogre, tokens, OPTS)).toEqual([]);
+    expect(buddiesFlanking(rogue, ogre, tokens, OPTS)).toEqual([hero]);
   });
 
   it("leaves unflankable enemies alone", () => {

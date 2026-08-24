@@ -23,22 +23,28 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
-      # Foundry requires a release manifest to point at that exact version, never a branch
-      - name: Stamp the manifest with this tag
+      # module.json in the repo is the only source of truth for the version, so a git-clone
+      # install and a manifest install can never disagree about which one is running
+      - name: Version matches the tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION=$(jq -r .version module.json)
+          if [ "$VERSION" != "${TAG#v}" ]; then
+            echo "::error::module.json says $VERSION but the tag is $TAG - bump module.json first"
+            exit 1
+          fi
+
+      # `manifest` keeps pointing at latest or installed copies never learn about a new release;
+      # only `download` pins to this tag, so a manifest and its zip always match
+      - name: Point the release manifest at this tag's zip
         env:
           TAG: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
         run: |
-          export VERSION="${TAG#v}"
-          export BASE="https://github.com/$REPO/releases/download/$TAG"
-          node --input-type=module -e '
-            import { readFileSync, writeFileSync } from "node:fs";
-            const manifest = JSON.parse(readFileSync("module.json", "utf8"));
-            manifest.version = process.env.VERSION;
-            manifest.manifest = `${process.env.BASE}/module.json`;
-            manifest.download = `${process.env.BASE}/module.zip`;
-            writeFileSync("module.json", `${JSON.stringify(manifest, null, 2)}\n`);
-          '
+          jq --arg url "https://github.com/$REPO/releases/download/$TAG/module.zip" '.download = $url' \
+            module.json > module.json.stamped && mv module.json.stamped module.json
+
       - name: Package
         run: zip -r module.zip module.json dist lang README.md LICENSE
 

@@ -40,9 +40,10 @@ Add-on module manifest URL (works once the repository is public and a release is
 https://github.com/eturino/pf2e-flank-vision/releases/latest/download/module.json
 ```
 
-Tagging `vX.Y.Z` builds, tests, stamps the manifest with that tag and publishes
-`module.json` + `module.zip` as release assets - Foundry requires a release manifest to point
-at its own exact version rather than a branch.
+Releasing is: bump `version` in `module.json`, commit, tag `vX.Y.Z`. The workflow refuses the
+tag if the two disagree, then builds, tests and publishes `module.json` + `module.zip` as
+release assets. The published manifest keeps pointing at `releases/latest` so installed copies
+still find the next version; only its `download` is pinned to the tag.
 
 On the media server the module is a git clone, so updates are a pull:
 
