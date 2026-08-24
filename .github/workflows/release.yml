@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+      # module.json in the repo is the only source of truth for the version, so a git-clone
+      # install and a manifest install can never disagree about which one is running
+      - name: Version matches the tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION=$(jq -r .version module.json)
+          if [ "$VERSION" != "${TAG#v}" ]; then
+            echo "::error::module.json says $VERSION but the tag is $TAG - bump module.json first"
+            exit 1
+          fi
+
+      # `manifest` keeps pointing at latest or installed copies never learn about a new release;
+      # only `download` pins to this tag, so a manifest and its zip always match
+      - name: Point the release manifest at this tag's zip
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          jq --arg url "https://github.com/$REPO/releases/download/$TAG/module.zip" '.download = $url' \
+            module.json > module.json.stamped && mv module.json.stamped module.json
+
+      - name: Package
+        run: zip -r module.zip module.json dist lang README.md CHANGELOG.md LICENSE
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            module.json
+            module.zip
+          generate_release_notes: true

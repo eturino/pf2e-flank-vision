@@ -7,8 +7,8 @@ import {
   type Point,
   type Square,
 } from "./geometry.ts";
-
-export type Token = any;
+import type { Footprint } from "./distance.ts";
+import { isFlankToken, type FlankToken } from "./pf2e.ts";
 
 export function gridSize(): number {
   return canvas.grid.size;
@@ -16,58 +16,98 @@ export function gridSize(): number {
 
 /** Feet (or whatever unit) covered by one grid square. */
 export function gridDistance(): number {
-  return canvas.dimensions?.distance || 5;
+  return canvas.dimensions.distance;
 }
 
-export function occupiedSquares(token: Token): Square[] {
-  const offsets = token.document?.getOccupiedGridSpaceOffsets?.() ?? [];
-  if (offsets.length > 0) return offsets.map((o: { i: number; j: number }) => ({ x: o.j, y: o.i }));
+interface Position {
+  x: number;
+  y: number;
+  elevation: number;
+  width: number;
+  height: number;
+}
 
-  // gridless scenes and anything else without offsets: fall back to the token's own footprint
+/**
+ * Where the token ends up, not where it is this frame.
+ *
+ * A placed token animates: Foundry interpolates `document.x/y` along the path, so a draw
+ * scheduled by a drop reads a point partway there and floors to the square it came from. Its
+ * `movement.destination` is the settled square, correct from the first frame - and the movement
+ * reports `completed` throughout, so the state is no help in telling the two apart.
+ *
+ * A drag clone is the mirror image: its `x`/`y` follow the cursor and are what we want, while its
+ * `movement` still describes whatever the real token did last. So the clone decides it, not the
+ * movement. `movement` is optional here because the types say nothing about what a clone carries.
+ */
+function settledPosition(token: FlankToken): Position {
+  const doc = token.document;
+  const to = token.isPreview ? null : doc.movement?.destination;
+  return {
+    x: to?.x ?? doc.x,
+    y: to?.y ?? doc.y,
+    elevation: to?.elevation ?? doc.elevation,
+    width: to?.width ?? doc.width,
+    height: to?.height ?? doc.height,
+  };
+}
+
+export function occupiedSquares(token: FlankToken): Square[] {
   const size = gridSize();
-  const originX = Math.floor(token.document.x / size);
-  const originY = Math.floor(token.document.y / size);
+  const at = settledPosition(token);
+  const originX = Math.floor(at.x / size);
+  const originY = Math.floor(at.y / size);
   const squares: Square[] = [];
-  for (let x = 0; x < Math.max(1, Math.round(token.document.width)); x++) {
-    for (let y = 0; y < Math.max(1, Math.round(token.document.height)); y++) {
+  for (let x = 0; x < Math.max(1, Math.round(at.width)); x++) {
+    for (let y = 0; y < Math.max(1, Math.round(at.height)); y++) {
       squares.push({ x: originX + x, y: originY + y });
     }
   }
   return squares;
 }
 
-export function squaresAt(token: Token, at?: Square): Square[] {
+export function squaresAt(token: FlankToken, at?: Square): Square[] {
   const squares = occupiedSquares(token);
   return at ? shiftSquares(squares, at) : squares;
 }
 
-export function centerAt(token: Token, at?: Square): Point {
+export function centerAt(token: FlankToken, at?: Square): Point {
   return centerOf(squaresAt(token, at), gridSize());
 }
 
-export function boundsAt(token: Token, at?: Square): Bounds {
+export function boundsAt(token: FlankToken, at?: Square): Bounds {
   return boundsOf(squaresAt(token, at), gridSize());
 }
 
-export function reachInSquares(token: Token): number {
-  const feet = token.actor?.getReach?.({ action: "attack" }) ?? gridDistance();
-  return Math.max(1, Math.round(feet / gridDistance()));
+export function reachInFeet(token: FlankToken): number {
+  return token.actor.getReach({ action: "attack" });
 }
 
-export function squareOf(token: Token): Square {
-  const size = gridSize();
-  return { x: Math.round(token.document.x / size), y: Math.round(token.document.y / size) };
+/** Squares plus vertical span: PF2e measures elevation as part of the same distance. */
+export function footprintAt(token: FlankToken, at?: Square): Footprint {
+  return {
+    squares: squaresAt(token, at),
+    elevation: settledPosition(token).elevation,
+    height: token.actor.dimensions?.height ?? gridDistance(),
+  };
 }
 
-/** Tokens a player is allowed to reason about: hidden ones only for the GM. */
-export function visibleTokens(): Token[] {
-  const isGM = game.user.isGM;
-  return canvas.tokens.placeables.filter(
-    (t: Token) => t.actor && !t.isPreview && (isGM || !t.document.hidden),
-  );
+/**
+ * Tokens this client may reason about. GM-hidden tokens are out for everyone, matching PF2e
+ * (`canFlank` refuses when either token is hidden), and tokens the player cannot see are out
+ * too - drawing an outline on one would leak its position.
+ */
+export function visibleTokens(): FlankToken[] {
+  return canvas.tokens.placeables
+    .filter(isFlankToken)
+    .filter((token) => !token.isPreview && !token.document.hidden && (game.user.isGM || token.visible));
 }
 
-export function canOccupy(token: Token, at: Square, others: Token[]): boolean {
+/** This module's geometry assumes square grids; hex and gridless would be drawn wrong. */
+export function isSupportedGrid(): boolean {
+  return canvas.grid.type === CONST.GRID_TYPES.SQUARE;
+}
+
+export function canOccupy(token: FlankToken, at: Square, others: FlankToken[]): boolean {
   const squares = shiftSquares(occupiedSquares(token), at);
   const size = gridSize();
   const scene = canvas.dimensions.sceneRect;
@@ -83,21 +123,20 @@ export function canOccupy(token: Token, at: Square, others: Token[]): boolean {
 
 /** Wall between two points, using the same collision backend as token movement. */
 export function wallBetween(a: Point, b: Point): boolean {
-  const backend = CONFIG.Canvas.polygonBackends?.move;
-  if (!backend) return false;
-  return backend.testCollision(a, b, { type: "move", mode: "any" });
+  return CONFIG.Canvas.polygonBackends.move.testCollision(a, b, { type: "move", mode: "any" });
 }
 
 /** The token whose situation we report on: the controlled one, else the assigned character. */
-export function focusToken(): Token | null {
-  const controlled = canvas.tokens.controlled.filter((t: Token) => t.actor);
-  if (controlled.length > 0) return controlled[0];
+export function focusToken(): FlankToken | null {
+  const controlled = canvas.tokens.controlled.filter(isFlankToken);
+  const first = controlled.at(0);
+  if (first) return first;
   const character = game.user.character;
   if (!character) return null;
-  return canvas.tokens.placeables.find((t: Token) => t.actor?.id === character.id) ?? null;
+  return visibleTokens().find((token) => token.actor.id === character.id) ?? null;
 }
 
 /** Drag clones live on the preview layer while a token is being moved. */
-export function previewTokens(): Token[] {
-  return (canvas.tokens.preview?.children ?? []).filter((t: Token) => t?.actor);
+export function previewTokens(): FlankToken[] {
+  return (canvas.tokens.preview?.children ?? []).filter(isFlankToken);
 }

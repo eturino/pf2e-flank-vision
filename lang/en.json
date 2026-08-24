@@ -3,7 +3,7 @@
     "settings": {
       "enabled": {
         "name": "Enable flank vision",
-        "hint": "Master switch for every overlay this module draws. Toggle with Alt+F."
+        "hint": "Master switch for every overlay this module draws."
       },
       "flankedMarkers": {
         "name": "Mark flanked tokens",
@@ -34,8 +34,8 @@
         "hint": "Stop after this many flanking positions, so a crowded scene cannot stall the canvas."
       }
     },
-    "keybindings": {
-      "toggle": { "name": "Toggle flank vision" }
+    "notifications": {
+      "unsupportedGrid": "PF2e Flank Vision only understands square grids, so its overlays are off on this scene."
     }
   }
 }

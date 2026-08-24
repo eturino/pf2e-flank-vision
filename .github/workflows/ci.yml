@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+      # dist/ is committed so the server can deploy by `git pull`; a stale bundle would ship
+      # source changes that never reach Foundry
+      - name: dist matches src
+        run: |
+          if ! git diff --exit-code -- dist; then
+            echo "::error::dist/ is stale - run 'pnpm build' and commit the result"
+            exit 1
+          fi

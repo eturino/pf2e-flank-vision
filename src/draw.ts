@@ -1,19 +1,9 @@
+import { colors } from "./colors.ts";
 import type { Bounds, Point } from "./geometry.ts";
 
-export const COLORS = {
-  /** You flank this enemy (or would, from here). */
-  flanking: 0x33bc4e,
-  /** Something is flanked, but not thanks to you. */
-  otherFlanked: 0xf1d836,
-  /** You are the one being flanked. */
-  flanked: 0xe72124,
-  /** Squares you could move to. */
-  placement: 0x43dfdf,
-} as const;
+let layer: PIXI.Graphics | null = null;
 
-let layer: any = null;
-
-export function overlay(): any {
+export function overlay(): PIXI.Graphics {
   if (!layer || layer.destroyed) {
     layer = new PIXI.Graphics();
     layer.eventMode = "none";
@@ -23,11 +13,13 @@ export function overlay(): any {
 }
 
 export function clearOverlay(): void {
-  layer?.clear();
+  // clear() and destroy() both throw on an already-destroyed Graphics, and this runs first
+  // in every render - an unguarded throw here would stop the module drawing for good
+  if (layer && !layer.destroyed) layer.clear();
 }
 
 export function destroyOverlay(): void {
-  layer?.destroy();
+  if (layer && !layer.destroyed) layer.destroy();
   layer = null;
 }
 
@@ -36,11 +28,12 @@ function thickness(): number {
 }
 
 export function outline(bounds: Bounds, color: number, alpha = 0.8): void {
+  const { left, top, right, bottom } = bounds;
   overlay()
     .lineStyle(thickness() * 1.5, 0x000000, alpha * 0.5)
-    .drawRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top)
+    .drawRect(left, top, right - left, bottom - top)
     .lineStyle(thickness(), color, alpha)
-    .drawRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
+    .drawRect(left, top, right - left, bottom - top);
 }
 
 export function line(a: Point, b: Point, color: number, alpha = 0.6): void {

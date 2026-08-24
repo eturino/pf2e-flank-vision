@@ -1,15 +1,20 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { buddiesFlanking, flankedBy, flankedEnemies, type Options } from "../src/flanking.ts";
+import { isFlankToken, type FlankToken } from "../src/pf2e.ts";
 import { flankingPlacements } from "../src/placement.ts";
 
 const GRID = 100;
 const OPTS: Options = { wallsBlock: false };
 
 beforeAll(() => {
-  (globalThis as any).canvas = {
-    grid: { size: GRID },
-    dimensions: { distance: 5, sceneRect: { x: -1000, y: -1000, width: 4000, height: 4000 } },
-  };
+  // `canvas` is a Foundry global; outside Foundry it has to be installed by hand
+  Object.defineProperty(globalThis, "canvas", {
+    configurable: true,
+    value: {
+      grid: { size: GRID },
+      dimensions: { distance: 5, sceneRect: { x: -1000, y: -1000, width: 4000, height: 4000 } },
+    },
+  });
 });
 
 interface Spec {
@@ -20,34 +25,67 @@ interface Spec {
   reach?: number;
   gangUp?: (number | true)[];
   flankable?: boolean;
+  elevation?: number;
+  hidden?: boolean;
+  /** Mid-move: document x/y still hold the animated position, the destination is elsewhere. */
+  movingTo?: { x: number; y: number };
+  /** A drag clone, whose own x/y win over a movement describing the last real move. */
+  preview?: boolean;
 }
 
-function token(name: string, spec: Spec): any {
+interface StubActor {
+  side: Spec["side"];
+  attributes: { flanking: { canFlank: boolean; flankable: boolean; canGangUp: (number | boolean | string)[] } };
+  canAttack: boolean;
+  dimensions: { height: number };
+  getReach: () => number;
+  isAllyOf: (other: StubActor) => boolean;
+}
+
+/**
+ * Stub tokens go through the same runtime guard the module uses on real ones, so the tests
+ * fail if the guard and the stubs ever drift apart.
+ */
+function token(name: string, spec: Spec): FlankToken {
   const size = spec.size ?? 1;
-  const offsets = [];
-  for (let i = 0; i < size; i++) {
-    for (let j = 0; j < size; j++) offsets.push({ i: spec.y + i, j: spec.x + j });
-  }
-  const actor: any = {
-    attributes: { flanking: { canFlank: true, flankable: spec.flankable ?? true, canGangUp: spec.gangUp ?? [] } },
+  const actor: StubActor = {
+    side: spec.side,
+    attributes: {
+      flanking: { canFlank: true, flankable: spec.flankable ?? true, canGangUp: spec.gangUp ?? [] },
+    },
     canAttack: true,
+    dimensions: { height: 5 },
     getReach: () => spec.reach ?? 5,
+    isAllyOf: (other) => other.side === spec.side,
   };
-  actor.isAllyOf = (other: any) => other.side === spec.side;
-  actor.side = spec.side;
-  return {
+  const stub: unknown = {
     name,
     id: name,
+    isPreview: spec.preview ?? false,
     actor,
     document: {
       x: spec.x * GRID,
       y: spec.y * GRID,
       width: size,
       height: size,
-      hidden: false,
-      getOccupiedGridSpaceOffsets: () => offsets,
+      hidden: spec.hidden ?? false,
+      elevation: spec.elevation ?? 0,
+      movement: spec.movingTo
+        ? {
+            state: "completed",
+            destination: {
+              x: spec.movingTo.x * GRID,
+              y: spec.movingTo.y * GRID,
+              elevation: spec.elevation ?? 0,
+              width: size,
+              height: size,
+            },
+          }
+        : undefined,
     },
   };
+  if (!isFlankToken(stub)) throw new Error(`stub token ${name} does not satisfy isFlankToken`);
+  return stub;
 }
 
 describe("flanking rules", () => {
@@ -100,6 +138,58 @@ describe("flanking rules", () => {
     const ogre = token("ogre", { side: "foe", x: 1, y: 1 });
 
     expect(buddiesFlanking(hero, ogre, [hero, ally, ogre], OPTS)).toEqual([ally]);
+  });
+
+  it("gives nothing to a hidden token, in either role", () => {
+    const hero = token("hero", { side: "party", x: 0, y: 1 });
+    const ally = token("ally", { side: "party", x: 2, y: 1, hidden: true });
+    const ogre = token("ogre", { side: "foe", x: 1, y: 1 });
+
+    expect(buddiesFlanking(hero, ogre, [hero, ally, ogre], OPTS)).toEqual([]);
+
+    const hiddenOgre = token("ogre", { side: "foe", x: 1, y: 1, hidden: true });
+    const visibleAlly = token("ally", { side: "party", x: 2, y: 1 });
+    expect(buddiesFlanking(hero, hiddenOgre, [hero, visibleAlly, hiddenOgre], OPTS)).toEqual([]);
+  });
+
+  it("does not flank a flyer out of reach overhead", () => {
+    const hero = token("hero", { side: "party", x: 0, y: 1 });
+    const ally = token("ally", { side: "party", x: 2, y: 1 });
+    const grounded = token("ogre", { side: "foe", x: 1, y: 1 });
+    expect(buddiesFlanking(hero, grounded, [hero, ally, grounded], OPTS)).toEqual([ally]);
+
+    const flyer = token("ogre", { side: "foe", x: 1, y: 1, elevation: 15 });
+    expect(buddiesFlanking(hero, flyer, [hero, ally, flyer], OPTS)).toEqual([]);
+  });
+
+  it("keeps an ally's Gang Up to that ally", () => {
+    const hero = token("hero", { side: "party", x: 0, y: 1 });
+    const rogue = token("rogue", { side: "party", x: 1, y: 0, gangUp: [true] });
+    const ogre = token("ogre", { side: "foe", x: 1, y: 1 });
+    const tokens = [hero, rogue, ogre];
+
+    expect(buddiesFlanking(hero, ogre, tokens, OPTS)).toEqual([]);
+    expect(buddiesFlanking(rogue, ogre, tokens, OPTS)).toEqual([hero]);
+  });
+
+  it("measures a moving token from where it lands, not mid-animation", () => {
+    const hero = token("hero", { side: "party", x: 0, y: 1 });
+    const ally = token("ally", { side: "party", x: 2, y: 1 });
+    const ogre = token("ogre", { side: "foe", x: 1, y: 1 });
+    expect(buddiesFlanking(hero, ogre, [hero, ally, ogre], OPTS)).toEqual([ally]);
+
+    // same document position, but it is on its way four squares south
+    const leaving = token("ogre", { side: "foe", x: 1, y: 1, movingTo: { x: 1, y: 5 } });
+    expect(buddiesFlanking(hero, leaving, [hero, ally, leaving], OPTS)).toEqual([]);
+  });
+
+  it("trusts a drag clone's own position over its stale movement", () => {
+    const hero = token("hero", { side: "party", x: 0, y: 1 });
+    const ally = token("ally", { side: "party", x: 2, y: 1 });
+    // the clone sits between them; its movement still points at wherever the real token last went
+    const clone = token("ogre", { side: "foe", x: 1, y: 1, movingTo: { x: 1, y: 5 }, preview: true });
+
+    expect(buddiesFlanking(hero, clone, [hero, ally, clone], OPTS)).toEqual([ally]);
   });
 
   it("leaves unflankable enemies alone", () => {

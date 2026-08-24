@@ -7,7 +7,6 @@ import {
   shiftSquares,
   squareGap,
   surroundingSquares,
-  withinReach,
   type Square,
 } from "../src/geometry.ts";
 
@@ -21,21 +20,13 @@ const large = (x: number, y: number): Square[] => [
 ];
 
 describe("squareGap", () => {
-  it("counts diagonals as one square, PF2e style", () => {
+  it("counts Chebyshev squares - a coarse filter, not a reach test", () => {
     expect(squareGap(medium(0, 0), medium(1, 1))).toBe(1);
     expect(squareGap(medium(0, 0), medium(3, 1))).toBe(3);
   });
 
   it("measures from the closest occupied square of a big token", () => {
     expect(squareGap(large(0, 0), medium(2, 0))).toBe(1);
-  });
-});
-
-describe("withinReach", () => {
-  it("puts adjacent tokens inside 5ft reach and the next ring outside", () => {
-    expect(withinReach(medium(0, 0), medium(1, 1), 1)).toBe(true);
-    expect(withinReach(medium(0, 0), medium(2, 0), 1)).toBe(false);
-    expect(withinReach(medium(0, 0), medium(2, 0), 2)).toBe(true);
   });
 });
 
