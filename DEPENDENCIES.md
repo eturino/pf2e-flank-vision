@@ -43,7 +43,7 @@ None.
 
 ## Last upgrade pass (2026-10-28)
 
-Base `5ad1f8f` (`main`), gate 5 days.
+Base `5ad1f8f` (`main`), gate 5 days, PR [#2](https://github.com/eturino/pf2e-flank-vision/pull/2).
 
 **Upgraded**
 
