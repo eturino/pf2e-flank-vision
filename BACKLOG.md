@@ -5,11 +5,9 @@ deleted, not archived - `git log` is the history.
 
 ## Toolchain upkeep (queued 2026-09-17 for 2026-09-18)
 
-Three decisions queued together because they share the same supply-chain surface.
+Two decisions queued together because they share the same supply-chain surface.
 Cross-repo context and the full list of repos: `~/Obsidian/eturino-notes/10-Daily/2026/09-September/2026-09-18-Friday.md`.
 
-- **vitest 4.0.18 -> 5.** A major, so read the migration notes before touching
-  it.
 - **`.snyk` policy file: decide whether to add one.** Today a scan re-reports the
   same accepted findings every time, so the acceptance lives in someone's memory
   rather than in the repo. A `.snyk` with `exclude` globs or reasoned `ignore`
