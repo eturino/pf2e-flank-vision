@@ -19,7 +19,7 @@
   "devDependencies": {
     "@dfreds/foundry-types": "~14.369.1",
     "esbuild": "^0.28.2",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   }
 }
