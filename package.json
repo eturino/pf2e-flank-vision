@@ -17,9 +17,9 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@dfreds/foundry-types": "^14.366.1",
-    "esbuild": "^0.27.0",
+    "@dfreds/foundry-types": "~14.369.1",
+    "esbuild": "^0.28.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.12"
   }
 }
