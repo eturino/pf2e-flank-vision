@@ -1,6 +1,6 @@
 # Dependency State
 
-Last reviewed: 2026-11-06
+Last reviewed: 2026-11-09
 
 State file for the `upgrade-deps` skill (rules: `~/.agents/custom-skills/upgrade-deps/SKILL.md`).
 Full per-pass detail lives in `git log -p DEPENDENCIES.md pnpm-lock.yaml`.
@@ -27,7 +27,7 @@ The Foundry client and PF2e type definitions; see the House rule. It pins `handl
 | `@dfreds/foundry-types` | `~14.369.1` | Foundry/PF2e types; see above. |
 | `esbuild` | `^0.28.2` | Bundles `src/main.ts` into `dist/flank-vision.js`. |
 | `typescript` | `^7.0.2` | `tsc --noEmit` typecheck only; esbuild does the emit. |
-| `vitest` | `^5.0.5` | Unit tests (`pnpm test`), no config file. |
+| `vitest` | `^5.1.0` | Unit tests (`pnpm test`), no config file. |
 
 ## Major Upgrades Blocked
 
@@ -35,32 +35,39 @@ None.
 
 ## Open security advisories
 
-None. Re-checked 2026-10-28 (`pnpm audit`: no known vulnerabilities).
+None. Re-checked 2026-11-09 (`pnpm audit`: no known vulnerabilities).
 
 ## Active supply-chain exceptions
 
 None.
 
-## Last upgrade pass (2026-11-06)
+## Last upgrade pass (2026-11-09)
 
-Base `8965823` (local `main`), gate 5 days, no PR yet.
+Base `c74f744` (`main`), gate 5 days, PR [#4](https://github.com/eturino/pf2e-flank-vision/pull/4).
 
-**Upgraded:** no direct range moved (`pnpm outdated` empty). The nested refresh moved transitive entries inside their ranges (`@oxc-project/types` 0.156.0, `@rolldown/binding-*` 1.2.16 and the like, via `vite`), lockfile only.
+**Upgraded**
+
+| Package | From | To | Notes |
+| ------- | ---- | -- | ----- |
+| `vitest` | 5.0.5 | 5.1.0 | |
 
 **Majors landed:** none.
 
 **Skipped this round:** none.
 
-**Security:** `pm audit-fix` exit 0, audit clean, no `minimumReleaseAgeExclude` entry added.
+**Nested refresh:** `pnpm update` no-op past `vitest`. **Security:** `pm audit-fix` exit 0, audit clean, no `minimumReleaseAgeExclude` entry added.
 
-**Action pins:** the workflows pin by tag (`@v6`, `@v4`, `@v2`), not by commit SHA, so step 8 had nothing to repin. Left as is.
+**Action pins:** the workflows still pin by tag (`@v6`, `@v4`, `@v2`), not by commit SHA, so step 8 had nothing to repin.
 
 **Still outdated after this pass:** empty.
 
-**Tested:** `pnpm typecheck`, `pnpm test` and `pnpm build` all exit 0; `git diff -- dist` empty after the build.
+**LLM models:** none; the module calls no model.
+
+**Tested:** `pnpm typecheck`, `pnpm test` (36/36 in 4 files) and `pnpm build` all exit 0; `git diff -- dist` empty after the build.
 
 ## Upgrade history
 
+- **2026-11-09**: minor+patches (`vitest` 5.1)
 - **2026-11-06**: lockfile refresh only (transitive, via `vite`)
 - **2026-10-28**: first pass: minor+patches + `vitest` v5 + `typescript` v7; 19 advisories cleared (`handlebars` override)
 
